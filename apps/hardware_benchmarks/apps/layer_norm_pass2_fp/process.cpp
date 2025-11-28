@@ -27,11 +27,11 @@ using namespace Halide::Runtime;
 
 int main(int argc, char **argv) {
     std::map<std::string, std::function<void()>> functions;
-    ManyInOneOut_ProcessController<uint16_t> processor("layer_norm_pass2_fp", { "input.mat", "vec_avg.mat" });
+    ManyInOneOut_ProcessController<uint16_t> processor("layer_norm_pass2_fp", { "input.mat" });
 
 #if defined(WITH_CPU)
     auto cpu_process = [&](auto &proc) {
-        layer_norm_pass2_fp(proc.inputs["input.mat"], proc.inputs["vec_avg.mat"], proc.output);
+        layer_norm_pass2_fp(proc.inputs["input.mat"], proc.output);
     };
     functions["cpu"] = [&]() {
         cpu_process(processor);
@@ -54,7 +54,7 @@ int main(int argc, char **argv) {
         RDAI_Platform *rdai_platform = RDAI_register_platform(&rdai_clockwork_sim_ops);
         if (rdai_platform) {
             printf("[RUN_INFO] found an RDAI platform\n");
-            layer_norm_pass2_fp_clockwork(proc.inputs["input.mat"], proc.inputs["vec_avg.mat"], proc.output);
+            layer_norm_pass2_fp_clockwork(proc.inputs["input.mat"], proc.output);
             RDAI_unregister_platform(rdai_platform);
         } else {
             printf("[RUN_INFO] failed to register RDAI platform!\n");
@@ -67,45 +67,102 @@ int main(int argc, char **argv) {
 
     processor.run_calls = functions;
 
-    auto vec_height_env = getenv("vec_height");
+    auto vec_width_fake_env = getenv("vec_width_fake");
+    auto vec_height_fake_env = getenv("vec_height_fake");
     auto vec_width_env = getenv("vec_width");
+    auto vec_height_env = getenv("vec_height");
 
-    auto vec_height = vec_height_env ? atoi(vec_height_env) : 2;
-    auto vec_width = vec_width_env ? atoi(vec_width_env) : 80;
+    auto vec_width_fake = vec_width_fake_env ? atoi(vec_width_fake_env) : 2048;
+    auto vec_height_fake = vec_height_fake_env ? atoi(vec_height_fake_env) : 4;
+    auto vec_width = vec_width_env ? atoi(vec_width_env) : 768;
+    auto vec_height = vec_height_env ? atoi(vec_height_env) : 128;
 
     std::cout << "using inputs set within process.cpp" << std::endl;
     processor.inputs_preset = true;
 
-    // Input
-    processor.inputs["input.mat"] = Buffer<uint16_t>(vec_width, vec_height);
-    auto input_copy_stencil = processor.inputs["input.mat"];
-    for (int y = 0; y < input_copy_stencil.dim(1).extent(); y++) {
-        for (int x = 0; x < input_copy_stencil.dim(0).extent(); x++) {
-            input_copy_stencil(x, y) = float_to_bfloat16_process((static_cast<float>(rand()) / RAND_MAX) * 14.0f - 7.0f);
+    const float gamma = 1.2f;
+    const float beta = -0.35f;
+
+    // Input activation
+    auto input_activation = Buffer<uint16_t>(vec_width, vec_height);
+    for (int y = 0; y < input_activation.dim(1).extent(); y++) {
+        for (int x = 0; x < input_activation.dim(0).extent(); x++) {
+            input_activation(x, y) = float_to_bfloat16_process((static_cast<float>(rand()) / RAND_MAX) * 20.0f - 10.0f);
         }
     }
 
-    // Vec avg input
-    processor.inputs["vec_avg.mat"] = Buffer<uint16_t>(vec_width, vec_height);
-    auto vec_avg = Buffer<uint16_t>(1);
-    vec_avg(0) = float_to_bfloat16_process(7.0f);
+    // Sum input
+    auto sum_input = Buffer<uint16_t>(vec_height);
+    for (int y = 0; y < input_activation.dim(1).extent(); y++) {
+        float sum_val = 0.0f;
+        for (int x = 0; x < input_activation.dim(0).extent(); x++) {
+            sum_val += bfloat16_to_float_process(input_activation(x, y));
+        }
+        sum_input(y) = float_to_bfloat16_process(sum_val);
+    }
 
-    // Gold output
-    processor.output = Buffer<uint16_t>(vec_height);
-    auto real_output = Buffer<uint16_t>(1);
-    float sum = 0.0f;
-    for (int y = 0; y < processor.inputs["input.mat"].dim(1).extent(); y++) {
-        for (int x = 0; x < processor.inputs["input.mat"].dim(0).extent(); x++) {
-            sum += (bfloat16_to_float_process(processor.inputs["input.mat"](x, y)) - bfloat16_to_float_process(vec_avg(0)))
-                   * (bfloat16_to_float_process(processor.inputs["input.mat"](x, y)) - bfloat16_to_float_process(vec_avg(0)));
+    // Pass 1 output x - sum(x)*(1/N)
+    auto pass1_output = Buffer<uint16_t>(vec_width, vec_height);
+    for (int y = 0; y < pass1_output.dim(1).extent(); y++) {
+        for (int x = 0; x < pass1_output.dim(0).extent(); x++) {
+            pass1_output(x, y) = float_to_bfloat16_process(
+                bfloat16_to_float_process(input_activation(x, y)) + bfloat16_to_float_process(sum_input(y)) * (-1.0f / float(vec_width))
+            );
         }
     }
-    const float vec_size = float(vec_width) * float(vec_height);
-    real_output(0) = float_to_bfloat16_process(sqrt(sum / vec_size));
 
-    save_halide_buffer_to_raw(processor.inputs["input.mat"], "bin/input_host_stencil.raw");
-    save_halide_buffer_to_raw(vec_avg, "bin/vec_avg_host_stencil.raw");
-    save_halide_buffer_to_raw(real_output, "bin/hw_output.raw");
+    // Final gold layer norm output
+    const float epsilon = 1e-5f;
+    auto gold_output = Buffer<uint16_t>(vec_width, vec_height);
+    std::vector<float> row_data(vec_width, 0.0f);
+
+    for (int y = 0; y < gold_output.dim(1).extent(); y++) {
+        // Load the row into float workspace so we can match PyTorch reference behavior
+        for (int x = 0; x < gold_output.dim(0).extent(); x++) {
+            row_data[x] = bfloat16_to_float_process(input_activation(x, y));
+        }
+
+        float mean = 0.0f;
+        for (const float val : row_data) {
+            mean += val;
+        }
+        mean /= static_cast<float>(vec_width);
+
+        float variance = 0.0f;
+        for (const float val : row_data) {
+            const float diff = val - mean;
+            variance += diff * diff;
+        }
+        variance /= static_cast<float>(vec_width);
+
+        const float inv_std = 1.0f / sqrtf(variance + epsilon);
+        for (int x = 0; x < gold_output.dim(0).extent(); x++) {
+            const float normalized = (row_data[x] - mean) * inv_std;
+            const float layer_norm_val = normalized * gamma + beta;
+            gold_output(x, y) = float_to_bfloat16_process(layer_norm_val);
+        }
+    }
+
+    // Define fake processor input and output placeholer buffers
+    processor.inputs["input.mat"] = Buffer<uint16_t>(vec_width_fake, vec_height_fake);
+    processor.output = Buffer<uint16_t>(vec_width_fake, vec_height_fake);
+
+    save_halide_buffer_to_raw(pass1_output, "bin/input_host_stencil.raw");
+    save_halide_buffer_to_raw(gold_output, "bin/hw_output.raw");
+
+    // Create glb bank config
+    using namespace glb_cfg;
+    // inputs, outputs, mu_inputs
+    const config_spec spec = {
+        {
+            tensor_spec{"input_host_stencil", {"x_coord"}},
+        },
+        {
+            tensor_spec{"hw_output", {"x_coord"}}
+        },
+        {}
+    };
+    write_glb_bank_config(spec);
 
     auto output = processor.process_command(argc, argv);
 

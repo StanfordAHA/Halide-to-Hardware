@@ -14,7 +14,6 @@ APPS_NEEDING_HACKS = [
     "scalar_avg_fp",
     "layer_norm_pass1_fp",
     "layer_norm_pass2_fp",
-    "layer_norm_pass3_fp",
     "gelu_pass1_mu_input_fp",
     "gelu_pass2_fp",
     "silu_pass2_fp",
@@ -925,377 +924,6 @@ class SelectedDesignHacker:
             hw_conf["stencil_valid"] = stencil_valid
             hw_meta["config"] = hw_conf
             hw_inst["metadata"] = hw_meta
-
-        # Overwrite the JSON
-        with open(json_path, "w") as f:
-            f.write(pretty_format_json(design))
-
-    def hack_for_layer_norm_pass2_fp_static(self, json_path, bin_path):
-
-        # TODO: Hardcode input pipelining regs for now
-        INPUT_PIPELINING_REGS = 3
-
-        with open(json_path, "r") as f:
-            design = json.load(f)
-
-        top_module = "layer_norm_pass2_fp"
-        tree_out_pond = "tree_3_stencil$ub_tree_3_stencil_BANK_0_garnet"
-        tree_out_pond_clk = "tree_3_stencil$ub_tree_3_stencil_BANK_0_clk_en_const"
-
-        # Const PE instance to remove
-        pe_to_remove = "op_hcompute_output_cgra_stencil$inner_compute$const_"
-
-        # Locate "layer_norm_pass2_fp" module
-        global_modules = design["namespaces"]["global"]["modules"]
-        if top_module not in global_modules:
-            print(f"WARNING: Module '{top_module}' not found in design. No hack applied.")
-            return
-        layer_norm_pass2_fp = global_modules[top_module]
-
-        # Remove the tile instance and its clk_en_const
-        instance_dict = layer_norm_pass2_fp.get("instances", {})
-        if tree_out_pond in instance_dict:
-            del instance_dict[tree_out_pond]
-        if tree_out_pond_clk in instance_dict:
-            del instance_dict[tree_out_pond_clk]
-
-        # Remove references to the tile from connections,
-        #    capturing upstream => old_input, downstream => old_output
-        old_input = None
-        old_output = None
-        new_connections = []
-
-        connection_list = layer_norm_pass2_fp.get("connections", [])
-        for conn in connection_list:
-            left, right = conn[0], conn[1]
-
-            # Check references to tile or its clk const
-            refs_tile_left = (tree_out_pond in left) or (tree_out_pond_clk in left)
-            refs_tile_right = (tree_out_pond in right) or (tree_out_pond_clk in right)
-
-            if not (refs_tile_left or refs_tile_right):
-                # If no reference to tile, keep it for now
-                new_connections.append(conn)
-                continue
-
-            # If referencing the tile, skip it but see if it's data_in or data_out
-            if tree_out_pond in left:
-                if ".data_in_pond_" in left or ".data_in_" in left:
-                    old_input = right
-            elif tree_out_pond in right:
-                if ".data_in_pond_" in right or ".data_in_" in right:
-                    old_input = left
-
-            if tree_out_pond in left:
-                if ".data_out_pond_" in left or ".data_out_" in left:
-                    old_output = right
-            elif tree_out_pond in right:
-                if ".data_out_pond_" in right or ".data_out_" in right:
-                    old_output = left
-
-        # Reconnect old_input -> old_output if both exist
-        if old_input and old_output:
-            new_connections.append([old_input, old_output])
-        else:
-            print(
-                f"WARNING: Could not find both data_in and data_out references for "
-                f"tile '{tree_out_pond}'. No direct reconnection added."
-            )
-
-        # Remove the PE instance "op_hcompute_output_cgra_stencil$inner_compute$const_"
-        #    from the instance dictionary (if present)
-        if pe_to_remove in instance_dict:
-            del instance_dict[pe_to_remove]
-
-        # Filter out any connections referencing const PE instance
-        final_connections = []
-        for conn in new_connections:
-            left, right = conn[0], conn[1]
-            if pe_to_remove in left or pe_to_remove in right:
-                # skip any references to that PE
-                continue
-            final_connections.append(conn)
-
-        # Update the final connection list
-        layer_norm_pass2_fp["connections"] = final_connections
-
-        # Get Halide generator arguments
-        HALIDE_GEN_ARGS = os.environ.get("HALIDE_GEN_ARGS")
-        print(f"HALIDE_GEN_ARGS: {HALIDE_GEN_ARGS}")
-        halide_args_dict = dict(item.split("=") for item in HALIDE_GEN_ARGS.split())
-        # Convert values to integers where applicable
-        halide_args_dict = {k: int(v) for k, v in halide_args_dict.items()}
-
-        # Modify psum pond schedule
-        psum_pond_name = "output_cgra_stencil$ub_output_cgra_stencil_BANK_0_garnet"
-        if psum_pond_name in instance_dict:
-            tile_inst = instance_dict[psum_pond_name]
-            metadata = tile_inst.get("metadata", {})
-            config = metadata.get("config", {})
-
-            # Remove 'in2regfile_1' and 'regfile2out_1' if present
-            if "in2regfile_1" in config:
-                del config["in2regfile_1"]
-            if "regfile2out_1" in config:
-                del config["regfile2out_1"]
-
-            # Adjust cycle_starting_addr for inputs
-            assert "in2regfile_0" in config, "Error: 'in2regfile_0' not found in config."
-            input_pipelining_regs = INPUT_PIPELINING_REGS
-            # Set reduction tree delay
-            reduction_tree_delay = 0
-            config["in2regfile_0"]["cycle_starting_addr"] = [
-                input_pipelining_regs + reduction_tree_delay
-            ]
-
-            # For regfile2out_0, set cycle_starting_addr to in2regfile_0 + 1
-            assert "regfile2out_0" in config, "Error: 'regfile2out_0' not found in config."
-            config["regfile2out_0"]["cycle_starting_addr"] = [
-                config["in2regfile_0"]["cycle_starting_addr"][0] + 1
-            ]
-
-            # Set write/read data stride to 0 as we always write/read to the same addr
-            config["in2regfile_0"]["write_data_stride"] = [0, 0]
-            config["regfile2out_0"]["read_data_stride"] = [0, 0]
-
-            metadata["config"] = config
-            tile_inst["metadata"] = metadata
-
-        # Update output IO tile
-        io_out_name = "io16_hw_output_stencil_op_hcompute_hw_output_stencil_write_0"
-
-        # Calculate cycles computing partial sum
-        psum_cycles = (
-            halide_args_dict["vec_width"]
-            * halide_args_dict["vec_height"]
-            // pow(2, halide_args_dict["tree_stages"])
-        ) + 2  # Add 2 for the sqrt (log + exp)
-        assert io_out_name in instance_dict, f"Error: '{io_out_name}' not found in instance_dict."
-        io16_inst = instance_dict[io_out_name]
-        io16_meta = io16_inst.get("metadata", {})
-        in2glb_0 = io16_meta.get("in2glb_0", {})
-
-        # Output cycle = psum pond's in2regfile_0 cycle_starting_addr + tot_elems / tree_width
-        tile_inst = instance_dict[psum_pond_name]
-        tile_meta = tile_inst.get("metadata", {})
-        tile_conf = tile_meta.get("config", {})
-
-        base_addr = tile_conf["in2regfile_0"]["cycle_starting_addr"][0]
-        in2glb_0["cycle_starting_addr"] = [base_addr + psum_cycles]
-        # TODO: Set extent to 2 (should set this to 1 since we only have 1 output, but then can't get f2g interrupt)
-        in2glb_0["extent"] = [2]
-
-        io16_meta["in2glb_0"] = in2glb_0
-        io16_inst["metadata"] = io16_meta
-
-        # Update stencil MEM config to be the same as output IO tile
-        hw_portctrl_garnet = "op_hcompute_hw_output_stencil_port_controller_garnet"
-        if hw_portctrl_garnet in instance_dict and io_out_name in instance_dict:
-            hw_inst = instance_dict[hw_portctrl_garnet]
-            hw_meta = hw_inst.get("metadata", {})
-            hw_conf = hw_meta.get("config", {})
-            if "stencil_valid" not in hw_conf:
-                hw_conf["stencil_valid"] = {}
-
-            stencil_valid = hw_conf["stencil_valid"]
-
-            # Copy from io16_hw_output_stencil_op_hcompute_hw_output_stencil_write_0 -> in2glb_0
-            io16_inst = instance_dict[io_out_name]
-            io16_meta = io16_inst.get("metadata", {})
-            in2glb_0 = io16_meta.get("in2glb_0", {})
-
-            stencil_valid["cycle_starting_addr"] = in2glb_0["cycle_starting_addr"]
-            stencil_valid["cycle_stride"] = in2glb_0["cycle_stride"]
-            stencil_valid["extent"] = in2glb_0["extent"]
-
-            hw_conf["stencil_valid"] = stencil_valid
-            hw_meta["config"] = hw_conf
-            hw_inst["metadata"] = hw_meta
-
-        # Remove replicated IOs to stream vec max and only keep one for broadcasting to subtraction PEs
-        max_io_prefix = "io16in_vec_avg_host_stencil_clkwrk_"
-        all_inst = list(instance_dict.keys())
-        vecmax_insts = [inst for inst in all_inst if inst.startswith(max_io_prefix)]
-        if len(vecmax_insts) > 1:
-            # Sort them and keep the first
-            vecmax_insts.sort()
-            keep_inst = vecmax_insts[0]
-            remove_insts = vecmax_insts[1:]
-
-            # Remove from instance_dict
-            for r in remove_insts:
-                del instance_dict[r]
-
-            # The module "type" is layer_norm_pass2_fp["type"] = ["Record",[...]]
-            type_list = layer_norm_pass2_fp["type"][1]
-
-            # Convert instance name -> the corresponding type prefix
-            # e.g. "io16in_vec_avg_host_stencil_clkwrk_8_op_hcompute_vec_avg_glb_stencil_2_read_0"
-            # -> "vec_avg_host_stencil_clkwrk_8_op_hcompute_vec_avg_glb_stencil_2_read_0"
-            def inst_to_field_prefix(name):
-                if name.startswith("io16in_"):
-                    return name[len("io16in_") :]
-                return name
-
-            keep_prefix = inst_to_field_prefix(keep_inst)
-            remove_prefixes = [inst_to_field_prefix(r) for r in remove_insts]
-
-            # Update the type record, removing fields for the removed instances
-            new_type_list = []
-            for field_pair in type_list:
-                field_name, field_type = field_pair
-                if "vec_avg_host_stencil_clkwrk_" not in field_name:
-                    # Not a vecmax field => keep
-                    new_type_list.append(field_pair)
-                    continue
-                # It's a vecmax field => keep only if it belongs to keep_prefix
-                # (i.e. starts with keep_prefix)
-                if field_name.startswith(keep_prefix):
-                    new_type_list.append(field_pair)
-                # else skip
-            layer_norm_pass2_fp["type"][1] = new_type_list
-
-            # Fix up connections: if referencing removed inst or fields, unify to keep inst
-            new_conn = []
-            for left, right in layer_norm_pass2_fp["connections"]:
-                new_left, new_right = left, right
-
-                # If the removed instance name is in the path, unify to keep_inst
-                for rinst in remove_insts:
-                    if rinst in new_left:
-                        new_left = new_left.replace(rinst, keep_inst)
-                    if rinst in new_right:
-                        new_right = new_right.replace(rinst, keep_inst)
-
-                # If the removed field prefix is in the path, unify it to keep_prefix
-                for rpref in remove_prefixes:
-                    if rpref in new_left:
-                        new_left = new_left.replace(rpref, keep_prefix)
-                    if rpref in new_right:
-                        new_right = new_right.replace(rpref, keep_prefix)
-
-                new_conn.append([new_left, new_right])
-
-            layer_norm_pass2_fp["connections"] = new_conn
-
-        # Deduplicate final connections: remove exact duplicates
-        final_dedup = []
-        seen = set()
-        for c in layer_norm_pass2_fp["connections"]:
-            # Represent connection as tuple (left, right)
-            t = tuple(c)
-            if t not in seen:
-                seen.add(t)
-                final_dedup.append(c)
-
-        layer_norm_pass2_fp["connections"] = final_dedup
-
-        # Configure the IO to read the same addr of GLB repeatedly
-        # TODO: this should be replaced by reading from MEM tile instead for power efficiency
-        for inst_name, inst_config in instance_dict.items():
-            if "io16in_vec_avg" in inst_name and inst_config["modref"] == "global.IO":
-                inst_config["metadata"]["glb2out_0"]["read_data_stride"] = [0]
-
-        # Overwrite the JSON
-        with open(json_path, "w") as f:
-            f.write(pretty_format_json(design))
-
-    def hack_for_layer_norm_pass3_fp_static(self, json_path, bin_path):
-
-        with open(json_path, "r") as f:
-            design = json.load(f)
-
-        top_module = "layer_norm_pass3_fp"
-
-        # Locate "stable_softmax_pass2_fp" module
-        global_modules = design["namespaces"]["global"]["modules"]
-        if top_module not in global_modules:
-            print(f"WARNING: Module '{top_module}' not found in design. No hack applied.")
-            return
-        layer_norm_pass3_fp = global_modules[top_module]
-        instance_dict = layer_norm_pass3_fp.get("instances", {})
-
-        # Remove replicated IOs to stream pass1_avg and only keep one for broadcasting to divison PEs
-        def remove_duplicate_ios(io_prefix, instance_dict, layer_norm_pass3_fp):
-            # Find all instances that start with the given prefix
-            all_inst = list(instance_dict.keys())
-            io_insts = [inst for inst in all_inst if inst.startswith(io_prefix)]
-
-            if len(io_insts) > 1:
-                # Sort instances and select the first one to keep
-                io_insts.sort()
-                keep_inst = io_insts[0]
-                remove_insts = io_insts[1:]
-
-                # Remove extra instances from instance_dict
-                for r in remove_insts:
-                    del instance_dict[r]
-
-                # Update the type record: layer_norm_pass3_fp["type"] = ["Record", [ ... ]]
-                type_list = layer_norm_pass3_fp["type"][1]
-
-                # Convert instance name to field prefix by stripping the "io16in_" part
-                def inst_to_field_prefix(name):
-                    if name.startswith("io16in_"):
-                        return name[len("io16in_") :]
-                    return name
-
-                keep_prefix = inst_to_field_prefix(keep_inst)
-                remove_prefixes = [inst_to_field_prefix(r) for r in remove_insts]
-
-                new_type_list = []
-                for field_pair in type_list:
-                    field_name, field_type = field_pair
-                    # If the field does not belong to the current IO prefix, keep it
-                    if io_prefix not in field_name:
-                        new_type_list.append(field_pair)
-                    # If it belongs to the IO prefix, keep it only if it matches the kept instance
-                    elif field_name.startswith(keep_prefix):
-                        new_type_list.append(field_pair)
-                layer_norm_pass3_fp["type"][1] = new_type_list
-
-                # Update connections so that references to removed instances or fields are unified to the kept ones
-                new_conn = []
-                for left, right in layer_norm_pass3_fp["connections"]:
-                    new_left, new_right = left, right
-                    # Replace any removed instance names with the kept instance name
-                    for rinst in remove_insts:
-                        if rinst in new_left:
-                            new_left = new_left.replace(rinst, keep_inst)
-                        if rinst in new_right:
-                            new_right = new_right.replace(rinst, keep_inst)
-                    # Replace any removed field prefixes with the kept prefix
-                    for rpref in remove_prefixes:
-                        if rpref in new_left:
-                            new_left = new_left.replace(rpref, keep_prefix)
-                        if rpref in new_right:
-                            new_right = new_right.replace(rpref, keep_prefix)
-                    new_conn.append([new_left, new_right])
-                layer_norm_pass3_fp["connections"] = new_conn
-
-        remove_duplicate_ios("io16in_pass1_avg_host_stencil_", instance_dict, layer_norm_pass3_fp)
-        remove_duplicate_ios("io16in_pass2_std_host_stencil_", instance_dict, layer_norm_pass3_fp)
-
-        # Deduplicate final connections: remove exact duplicates
-        final_dedup = []
-        seen = set()
-        for c in layer_norm_pass3_fp["connections"]:
-            # Represent connection as tuple (left, right)
-            t = tuple(c)
-            if t not in seen:
-                seen.add(t)
-                final_dedup.append(c)
-
-        layer_norm_pass3_fp["connections"] = final_dedup
-
-        # Configure the IO to read the same addr of GLB repeatedly
-        # TODO: this should be replaced by reading from MEM tile instead for power efficiency
-        for inst_name, inst_config in instance_dict.items():
-            if (
-                "io16in_pass1_avg_host_stencil" in inst_name
-                or "io16in_pass2_std_host_stencil" in inst_name
-            ) and inst_config["modref"] == "global.IO":
-                inst_config["metadata"]["glb2out_0"]["read_data_stride"] = [0]
 
         # Overwrite the JSON
         with open(json_path, "w") as f:
@@ -2761,6 +2389,23 @@ class SelectedDesignHacker:
             if "op_hcompute_output_glb_stencil" in right and elementwise_op_pattern in right and "io16_hw_output_stencil" in left:
                 continue
 
+            # Skip all connections from elementwise PEs to intermediate PE inputs
+            # We will add the correct connections later based on input IO -> output IO index matching
+            # Intermediate PEs are other PEs (like fp_add) that are NOT elementwise PEs
+            elementwise_pe_in_left = "op_hcompute_output_glb_stencil" in left and elementwise_op_pattern in left and ".O0" in left
+            intermediate_pe_in_right = ("op_hcompute_output_glb_stencil" in right and
+                                       elementwise_op_pattern not in right and  # Not an elementwise PE
+                                       any(f".data{i}" in right for i in range(3)))
+
+            elementwise_pe_in_right = "op_hcompute_output_glb_stencil" in right and elementwise_op_pattern in right and ".O0" in right
+            intermediate_pe_in_left = ("op_hcompute_output_glb_stencil" in left and
+                                      elementwise_op_pattern not in left and  # Not an elementwise PE
+                                      any(f".data{i}" in left for i in range(3)))
+
+            # Skip all elementwise PE -> intermediate PE connections and we'll add correct ones later
+            if (elementwise_pe_in_left and intermediate_pe_in_right) or (elementwise_pe_in_right and intermediate_pe_in_left):
+                continue
+
             add_conn_once(left, right)
 
 
@@ -2786,31 +2431,119 @@ class SelectedDesignHacker:
         add_conn_once(f"{accum_pond_1_name}.data_in_pond_0", f"{accum_pe_1_name}.O0")
         add_conn_once(f"{accum_pond_1_name}.data_out_pond_1", f"{final_reduce_pe_name}.data1")
 
+        # Find PEs that were originally connected to sum buffer (to avoid redundant connections
+        # when there are multiple PEs with the same instruction in a long pipeline)
+        # Dictionary maps PE name -> set of ports that were connected to sum buffer
+        pes_connected_to_sum_buffer = {}
+        if sum_mem_name:
+            for left, right in original_connections:
+                if sum_mem_name in left and ".data_out" in left:
+                    if "op_hcompute_output_cgra_stencil" in right:
+                        port_match = re.search(r"\.(data\d+)", right)
+                        if port_match:
+                            pe_name = right.rsplit(".", 1)[0]
+                            port = port_match.group(1)
+                            if pe_name not in pes_connected_to_sum_buffer:
+                                pes_connected_to_sum_buffer[pe_name] = set()
+                            pes_connected_to_sum_buffer[pe_name].add(port)
+                elif sum_mem_name in right and ".data_out" in right:
+                    if "op_hcompute_output_cgra_stencil" in left:
+                        port_match = re.search(r"\.(data\d+)", left)
+                        if port_match:
+                            pe_name = left.rsplit(".", 1)[0]
+                            port = port_match.group(1)
+                            if pe_name not in pes_connected_to_sum_buffer:
+                                pes_connected_to_sum_buffer[pe_name] = set()
+                            pes_connected_to_sum_buffer[pe_name].add(port)
+
+        for sum_pond_name in sum_cgra_stencil_ponds_to_remove:
+            for left, right in original_connections:
+                if sum_pond_name in left and ".data_out_pond" in left:
+                    if "op_hcompute_output_cgra_stencil" in right:
+                        port_match = re.search(r"\.(data\d+)", right)
+                        if port_match:
+                            pe_name = right.rsplit(".", 1)[0]
+                            port = port_match.group(1)
+                            if pe_name not in pes_connected_to_sum_buffer:
+                                pes_connected_to_sum_buffer[pe_name] = set()
+                            pes_connected_to_sum_buffer[pe_name].add(port)
+                elif sum_pond_name in right and ".data_out_pond" in right:
+                    if "op_hcompute_output_cgra_stencil" in left:
+                        port_match = re.search(r"\.(data\d+)", left)
+                        if port_match:
+                            pe_name = left.rsplit(".", 1)[0]
+                            port = port_match.group(1)
+                            if pe_name not in pes_connected_to_sum_buffer:
+                                pes_connected_to_sum_buffer[pe_name] = set()
+                            pes_connected_to_sum_buffer[pe_name].add(port)
+
         # Connect final_reduce_pe directly to scalar operation (bypassing sum buffer MEM)
         if scalar_op_type == "division":
-            # Find division pipeline PEs
             get_mant_pe_name = None
             sub_exp_pe_name = None
             for inst_name in instance_dict:
                 if "op_hcompute_output_cgra_stencil" in inst_name and "fp_getmant" in inst_name:
-                    get_mant_pe_name = inst_name
+                    if inst_name in pes_connected_to_sum_buffer:
+                        get_mant_pe_name = inst_name
                 elif "op_hcompute_output_cgra_stencil" in inst_name and "fp_subexp" in inst_name:
-                    sub_exp_pe_name = inst_name
+                    if inst_name in pes_connected_to_sum_buffer:
+                        sub_exp_pe_name = inst_name
 
             if get_mant_pe_name:
-                add_conn_once(f"{final_reduce_pe_name}.O0", f"{get_mant_pe_name}.data0")
+                # Use the port that was originally connected (typically one port per PE)
+                target_ports = pes_connected_to_sum_buffer[get_mant_pe_name]
+                if len(target_ports) > 1:
+                    raise RuntimeError(f"PE {get_mant_pe_name} has multiple ports connected to sum buffer: {target_ports}")
+                target_port = next(iter(target_ports))
+                add_conn_once(f"{final_reduce_pe_name}.O0", f"{get_mant_pe_name}.{target_port}")
             if sub_exp_pe_name:
-                add_conn_once(f"{final_reduce_pe_name}.O0", f"{sub_exp_pe_name}.data1")
+                target_ports = pes_connected_to_sum_buffer[sub_exp_pe_name]
+                if len(target_ports) > 1:
+                    raise RuntimeError(f"PE {sub_exp_pe_name} has multiple ports connected to sum buffer: {target_ports}")
+                target_port = next(iter(target_ports))
+                add_conn_once(f"{final_reduce_pe_name}.O0", f"{sub_exp_pe_name}.{target_port}")
+
+        elif scalar_op_type == "log":
+            get_mant_pe_name = None
+            exp2f_pe_name = None
+            for inst_name in instance_dict:
+                if "op_hcompute_output_cgra_stencil" in inst_name and "fp_getmant" in inst_name:
+                    if inst_name in pes_connected_to_sum_buffer:
+                        get_mant_pe_name = inst_name
+                elif "op_hcompute_output_cgra_stencil" in inst_name and "fp_cnvexp2f" in inst_name:
+                    if inst_name in pes_connected_to_sum_buffer:
+                        exp2f_pe_name = inst_name
+
+            if get_mant_pe_name:
+                target_ports = pes_connected_to_sum_buffer[get_mant_pe_name]
+                if len(target_ports) > 1:
+                    raise RuntimeError(f"PE {get_mant_pe_name} has multiple ports connected to sum buffer: {target_ports}")
+                target_port = next(iter(target_ports))
+                add_conn_once(f"{final_reduce_pe_name}.O0", f"{get_mant_pe_name}.{target_port}")
+            if exp2f_pe_name:
+                target_ports = pes_connected_to_sum_buffer[exp2f_pe_name]
+                if len(target_ports) > 1:
+                    raise RuntimeError(f"PE {exp2f_pe_name} has multiple ports connected to sum buffer: {target_ports}")
+                target_port = next(iter(target_ports))
+                add_conn_once(f"{final_reduce_pe_name}.O0", f"{exp2f_pe_name}.{target_port}")
+
         elif scalar_op_type == "fp_mul":
-            # Find fp_mul PE for scalar operation
             scalar_fp_mul_pe_name = None
             for inst_name in instance_dict:
                 if "op_hcompute_output_cgra_stencil" in inst_name and "float_DW_fp_mul" in inst_name:
-                    scalar_fp_mul_pe_name = inst_name
-                    break
+                    if inst_name in pes_connected_to_sum_buffer:
+                        scalar_fp_mul_pe_name = inst_name
+                        break
 
             if scalar_fp_mul_pe_name:
-                add_conn_once(f"{final_reduce_pe_name}.O0", f"{scalar_fp_mul_pe_name}.data0")
+                target_ports = pes_connected_to_sum_buffer[scalar_fp_mul_pe_name]
+                if len(target_ports) > 1:
+                    raise RuntimeError(f"PE {scalar_fp_mul_pe_name} has multiple ports connected to sum buffer: {target_ports}")
+                target_port = next(iter(target_ports))
+                add_conn_once(f"{final_reduce_pe_name}.O0", f"{scalar_fp_mul_pe_name}.{target_port}")
+
+        else:
+            raise ValueError(f"Unsupported scalar operation type: {scalar_op_type}")
 
         # Find all elementwise operation PEs dynamically
         elementwise_op_pattern = f"float_DW_{elementwise_op_type}"
@@ -2895,6 +2628,69 @@ class SelectedDesignHacker:
 
         # Build mapping from input IO index -> BANK index from original connections
         input_io_idx_to_bank_idx = {}
+
+        # Helper function to trace backwards from a port to find the input IO
+        def trace_to_input_io(port_name, visited=None):
+            """
+            Trace backwards from a port through PEs to find the input IO.
+            Returns the input IO name if found, None otherwise.
+            """
+            if visited is None:
+                visited = set()
+
+            # Avoid infinite loops
+            if port_name in visited:
+                return None
+            visited.add(port_name)
+
+            # Check if this port is directly from an input IO
+            if "io16in_input_host_stencil" in port_name and ".out" in port_name:
+                return port_name.split(".")[0]
+
+            # If port_name is a PE output (.O0), we need to trace backwards through the PE's inputs
+            # instead of looking for connections involving the output port
+            if ".O0" in port_name and "op_hcompute" in port_name:
+                pe_instance = port_name.split(".")[0]
+                # Trace back through the PE's inputs (data0, data1, data2)
+                for pe_input_idx in range(3):
+                    pe_input_port = f"{pe_instance}.data{pe_input_idx}"
+                    result = trace_to_input_io(pe_input_port, visited)
+                    if result:
+                        return result
+                return None
+
+            # Find what connects to this port (tracing backwards)
+            # Connections are [source, destination], so we look for where port_name appears
+            for left, right in original_connections:
+                upstream_port = None
+
+                # Check if port_name is the destination (right side)
+                if port_name == right:
+                    upstream_port = left
+                # Check if port_name is the source (left side) - for bidirectional connections
+                elif port_name == left:
+                    upstream_port = right
+                else:
+                    continue
+
+                upstream_instance = upstream_port.split(".")[0]
+
+                # If upstream is an input IO, we found it
+                if "io16in_input_host_stencil" in upstream_instance and ".out" in upstream_port:
+                    return upstream_instance
+
+                # If upstream is a PE output (.O0), trace back through the PE's inputs
+                if ".O0" in upstream_port and "op_hcompute" in upstream_instance:
+                    # This is a PE output, trace back through its inputs (data0, data1, data2)
+                    for pe_input_idx in range(3):
+                        pe_input_port = f"{upstream_instance}.data{pe_input_idx}"
+                        result = trace_to_input_io(pe_input_port, visited)
+                        if result:
+                            return result
+
+            return None
+
+        # First pass: Look for direct connections tile_input_stencil$ub_tile_input_stencil_BANK_X.data_in_0 <-> io16in_input_host_stencil_..._stencil_Y_read_0.out
         for left, right in original_connections:
             # Look for connections tile_input_stencil$ub_tile_input_stencil_BANK_X.data_in_0 <-> io16in_input_host_stencil_..._stencil_Y_read_0.out
             bank_match = None
@@ -2914,16 +2710,145 @@ class SelectedDesignHacker:
                 input_io_idx = extract_io_idx(input_io_name, is_input=True)
                 input_io_idx_to_bank_idx[input_io_idx] = bank_idx
 
+        # Second pass: Handle cases where MEM bank inputs come from PEs (not directly from input IOs)
+        # Find all MEM banks that weren't matched in the first pass
+        all_bank_indices = set()
+        for left, right in original_connections:
+            for side in [left, right]:
+                if "tile_input_stencil$ub_tile_input_stencil_BANK" in side and ".data_in_0" in side:
+                    bank_match = re.search(r"BANK_(\d+)_garnet", side)
+                    if bank_match:
+                        all_bank_indices.add(int(bank_match.group(1)))
+
+        # For banks not yet mapped, trace backwards through PEs
+        for bank_idx in all_bank_indices:
+            if bank_idx in input_io_idx_to_bank_idx.values():
+                continue  # Already mapped
+
+            # Find the MEM bank input port
+            mem_bank_input_port = None
+            for left, right in original_connections:
+                mem_bank_pattern = f"tile_input_stencil$ub_tile_input_stencil_BANK_{bank_idx}_garnet.data_in_0"
+                if mem_bank_pattern in left:
+                    mem_bank_input_port = right
+                    break
+                elif mem_bank_pattern in right:
+                    mem_bank_input_port = left
+                    break
+
+            if mem_bank_input_port:
+                # Trace backwards to find the input IO
+                input_io_name = trace_to_input_io(mem_bank_input_port)
+                if input_io_name:
+                    input_io_idx = extract_io_idx(input_io_name, is_input=True)
+                    input_io_idx_to_bank_idx[input_io_idx] = bank_idx
+
+        # Error handling: Check if mapping is empty or incomplete
+        if not input_io_idx_to_bank_idx:
+            raise ValueError(
+                "[ERROR]: Failed to build input IO index to BANK index mapping. "
+                "No connections found between input IOs and tile_input_stencil MEM banks. "
+                "This may indicate a design issue or unsupported connection pattern."
+            )
+
+        # Check if all expected banks are mapped
+        mapped_banks = set(input_io_idx_to_bank_idx.values())
+        if mapped_banks != all_bank_indices:
+            missing_banks = all_bank_indices - mapped_banks
+            raise ValueError(
+                f"[ERROR]: Failed to map all MEM banks to input IOs. "
+                f"Missing banks: {sorted(missing_banks)}. "
+                f"Mapped banks: {sorted(mapped_banks)}. "
+                f"This may indicate intermediate PEs that couldn't be traced back to input IOs."
+            )
+
         # Connect elementwise PEs to output IOs based on input IO index matching
-        # Path: input IO (index i) -> BANK (index j) -> elementwise (lane j) -> output IO (index i)
-        # So for each input IO index i, find which BANK j it connects to,
-        # then find elementwise with lane j, and connect it to output IO with index i
+        # Path: input IO (index i) -> BANK (index j) -> elementwise (lane j) -> [intermediate PE] -> output IO (index i)
+        # Handle cases where there may be intermediate PEs (like fp_add) between elementwise PE and output IO
+
+        # Helper function to extract index from intermediate PE names
+        def extract_intermediate_pe_idx(pe_name):
+            """
+            Extract index from intermediate PE names like op_hcompute_output_glb_stencil$...
+            or op_hcompute_output_glb_stencil_<idx>$...
+            """
+            if "op_hcompute_output_glb_stencil$" in pe_name:
+                return 0  # No suffix means index 0
+            elif "op_hcompute_output_glb_stencil_" in pe_name:
+                # Extract number after the underscore
+                match = re.search(r"op_hcompute_output_glb_stencil_(\d+)\$", pe_name)
+                if match:
+                    return int(match.group(1))
+            return None
+
+        # Helper function to trace forward from output IO to find intermediate PE
+        def trace_to_intermediate_pe(output_io_name):
+            """
+            Trace forward from output IO to find intermediate PE (like fp_add).
+            Returns the intermediate PE name if found, None otherwise.
+            Intermediate PEs should have op_hcompute_output_glb_stencil in their name.
+            """
+            output_io_in_port = f"{output_io_name}.in"
+
+            # Find what connects to the output IO input port
+            for left, right in original_connections:
+                if output_io_in_port == right:
+                    # Found connection where output IO is the destination
+                    source_port = left
+                    source_instance = source_port.split(".")[0]
+
+                    # Check if source is an intermediate PE
+                    if "op_hcompute_output_glb_stencil" in source_instance and ".O0" in source_port:
+                        return source_instance
+
+                elif output_io_in_port == left:
+                    # Found connection where output IO is the source
+                    dest_port = right
+                    dest_instance = dest_port.split(".")[0]
+
+                    # Check if destination is an intermediate PE
+                    if "op_hcompute_output_glb_stencil" in dest_instance and ".O0" in dest_port:
+                        return dest_instance
+
+            return None
+
+        # Build mapping from output IO index -> intermediate PE name
+        output_io_idx_to_intermediate_pe = {}
+        for output_io_idx, output_io_name in output_io_by_idx.items():
+            intermediate_pe_name = trace_to_intermediate_pe(output_io_name)
+            if intermediate_pe_name:
+                # Verify the intermediate PE index matches the output IO index
+                intermediate_pe_idx = extract_intermediate_pe_idx(intermediate_pe_name)
+                if intermediate_pe_idx == output_io_idx:
+                    output_io_idx_to_intermediate_pe[output_io_idx] = intermediate_pe_name
+
+        # Connect elementwise PEs to output IOs (or intermediate PEs if present)
+        # Path: input IO (index i) -> BANK (index j) -> elementwise (lane j) -> [intermediate PE] -> output IO (index i)
         for input_io_idx, bank_idx in input_io_idx_to_bank_idx.items():
             # Find elementwise PE with lane matching the BANK index
             if bank_idx in lane_to_elementwise and input_io_idx in output_io_by_idx:
                 elementwise_pe_name = lane_to_elementwise[bank_idx]
                 output_io_name = output_io_by_idx[input_io_idx]
-                add_conn_once(f"{elementwise_pe_name}.O0", f"{output_io_name}.in")
+
+                # Check if there's an intermediate PE for this output IO
+                if input_io_idx in output_io_idx_to_intermediate_pe:
+                    # Connect elementwise PE to intermediate PE
+                    intermediate_pe_name = output_io_idx_to_intermediate_pe[input_io_idx]
+                    # Based on the pattern in original connections, elementwise PEs connect to data0 of intermediate PEs
+                    add_conn_once(f"{elementwise_pe_name}.O0", f"{intermediate_pe_name}.data0")
+                else:
+                    # No intermediate PE, connect directly to output IO
+                    add_conn_once(f"{elementwise_pe_name}.O0", f"{output_io_name}.in")
+
+        # Error handling: Check if intermediate PE mapping is incomplete
+        if output_io_idx_to_intermediate_pe:
+            # Some output IOs have intermediate PEs, verify all expected ones are mapped
+            mapped_output_indices = set(output_io_idx_to_intermediate_pe.keys())
+            expected_output_indices = set(output_io_by_idx.keys())
+            if mapped_output_indices != expected_output_indices:
+                missing_indices = expected_output_indices - mapped_output_indices
+                # This is a warning, not an error, as some might connect directly
+                print(f"[WARNING]: Some output IOs don't have intermediate PEs mapped: {sorted(missing_indices)}")
 
         top_module_json["connections"] = connections
 
@@ -3139,206 +3064,193 @@ class SelectedDesignHacker:
         )
 
     def hack_for_layer_norm_pass2_fp_rv(self, json_path, bin_path):
+        self._hack_reduction_followed_by_elementwise_rv(
+            json_path, bin_path,
+            top_module="layer_norm_pass2_fp",
+            scalar_op_type="log",
+            elementwise_op_type="fp_mul"
+        )
 
+        # Add dummy_max_nop PE between fp_addiexp and fp_subexp for path balancing
         with open(json_path, "r") as f:
             design = json.load(f)
 
         top_module = "layer_norm_pass2_fp"
-        tree_out_pond = "tree_3_stencil$ub_tree_3_stencil_BANK_0_garnet"
-        tree_out_pond_clk = "tree_3_stencil$ub_tree_3_stencil_BANK_0_clk_en_const"
-
-        # Const PE instance to remove
-        pe_to_remove = "op_hcompute_output_cgra_stencil$inner_compute$const_"
-
-        # Locate "layer_norm_pass2_fp" module
         global_modules = design["namespaces"]["global"]["modules"]
         if top_module not in global_modules:
-            print(f"WARNING: Module '{top_module}' not found in design. No hack applied.")
-            return
+            raise RuntimeError(f"[ERROR]: Module '{top_module}' not found in design.")
+
         layer_norm_pass2_fp = global_modules[top_module]
+        instances = layer_norm_pass2_fp["instances"]
+        connections = layer_norm_pass2_fp["connections"]
 
-        # Remove the tile instance and its clk_en_const
-        instance_dict = layer_norm_pass2_fp.get("instances", {})
-        if tree_out_pond in instance_dict:
-            del instance_dict[tree_out_pond]
-        if tree_out_pond_clk in instance_dict:
-            del instance_dict[tree_out_pond_clk]
-
-        # Remove references to the tile from connections,
-        #    capturing upstream => old_input, downstream => old_output
-        old_input = None
-        old_output = None
-        new_connections = []
-
-        connection_list = layer_norm_pass2_fp.get("connections", [])
-        for conn in connection_list:
+        # Find connections from fp_addiexp to fp_subexp
+        connections_to_modify = []
+        for conn in connections:
             left, right = conn[0], conn[1]
+            # Check both directions since connections are unordered
+            if "fp_addiexp" in left and ".O0" in left and "fp_subexp" in right and ".data1" in right:
+                connections_to_modify.append((left, right))
+            elif "fp_addiexp" in right and ".O0" in right and "fp_subexp" in left and ".data1" in left:
+                connections_to_modify.append((right, left))
 
-            # Check references to tile or its clk const
-            refs_tile_left = (tree_out_pond in left) or (tree_out_pond_clk in left)
-            refs_tile_right = (tree_out_pond in right) or (tree_out_pond_clk in right)
+        if not connections_to_modify:
+            raise RuntimeError(f"[ERROR]: No fp_addiexp to fp_subexp connections found in '{top_module}'.")
 
-            if not (refs_tile_left or refs_tile_right):
-                # If no reference to tile, keep it for now
-                new_connections.append(conn)
-                continue
+        # Helper function to add connection only if it doesn't exist
+        def add_conn_once(src, dst):
+            pair = [src, dst]
+            if pair not in connections:
+                connections.append(pair)
 
-            # If referencing the tile, skip it but see if it's data_in or data_out
-            if tree_out_pond in left:
-                if ".data_in_pond_" in left or ".data_in_" in left:
-                    old_input = right
-            elif tree_out_pond in right:
-                if ".data_in_pond_" in right or ".data_in_" in right:
-                    old_input = left
+        # Create dummy_max_nop PEs and modify connections
+        pe_counter = 0
+        for src, dst in connections_to_modify:
+            # Extract base name from source for PE naming
+            src_base = src.split(".O0")[0]
+            dummy_pe_name = f"{src_base}_dummy_max_nop_pe{pe_counter}"
+            dummy_const_name = f"{src_base}_dummy_max_nop_const{pe_counter}"
 
-            if tree_out_pond in left:
-                if ".data_out_pond_" in left or ".data_out_" in left:
-                    old_output = right
-            elif tree_out_pond in right:
-                if ".data_out_pond_" in right or ".data_out_" in right:
-                    old_output = left
-
-        # Reconnect old_input -> old_output if both exist
-        if old_input and old_output:
-            new_connections.append([old_input, old_output])
-        else:
-            print(
-                f"WARNING: Could not find both data_in and data_out references for "
-                f"tile '{tree_out_pond}'. No direct reconnection added."
-            )
-
-        # Remove the PE instance "op_hcompute_output_cgra_stencil$inner_compute$const_"
-        #    from the instance dictionary (if present)
-        if pe_to_remove in instance_dict:
-            del instance_dict[pe_to_remove]
-
-        # Filter out any connections referencing const PE instance
-        final_connections = []
-        for conn in new_connections:
-            left, right = conn[0], conn[1]
-            if pe_to_remove in left or pe_to_remove in right:
-                # skip any references to that PE
-                continue
-            final_connections.append(conn)
-
-        # Update the final connection list
-        layer_norm_pass2_fp["connections"] = final_connections
-
-        # Identify psum PE with Pond and generate fifo bypass config
-        # Write bypass config to design_top at the top level
-        psum_pe_name = "op_hcompute_output_cgra_stencil_1$inner_compute$float_DW_fp_add_"
-        PE_fifos_bypass_config = {
-            psum_pe_name: {
-                # HACK: Assuming the PE input port connected to Pond is "data_in_0"
-                # We bypass the input and output fifos on the feedback path
-                "input_fifo_bypass": [1, 0, 0],
-                "output_fifo_bypass": 1,
+            # Create const instruction instance
+            instances[dummy_const_name] = {
+                "genref": "coreir.const",
+                "genargs": {"width": ["Int", 84]},
+                "modargs": {"value": [["BitVector", 84], self.DUMMY_MAX_NOP_INSTR]},
             }
-        }
-        PE_fifos_bypass_config_path = os.path.join(bin_path, "PE_fifos_bypass_config.json")
-        print(f"Writing PE_fifos_bypass_config to {PE_fifos_bypass_config_path}")
-        with open(PE_fifos_bypass_config_path, "w") as f:
-            json.dump(PE_fifos_bypass_config, f, indent=2)
 
-        # Update output IO tile extent
-        # HACK: Set extent to 2 (should set this to 1 since we only have 1 output, but then can't get f2g interrupt)
-        # Also have to update cycle_start_addr and stride, as it means handshake rather than cycles in dense rv scenario
-        io_out_name = "io16_hw_output_stencil_op_hcompute_hw_output_stencil_write_0"
-        instance_dict[io_out_name]["metadata"]["in2glb_0"]["extent"] = [2]
-        # We want to accept every valid handshake starting from the first one
-        instance_dict[io_out_name]["metadata"]["in2glb_0"]["cycle_starting_addr"] = [0]
-        instance_dict[io_out_name]["metadata"]["in2glb_0"]["cycle_stride"] = [1]
+            # Create PE instance
+            instances[dummy_pe_name] = copy.deepcopy(self.pe_tpl)
 
-        # Remove replicated IOs to stream vec max and only keep one for broadcasting to subtraction PEs
-        max_io_prefix = "io16in_vec_avg_host_stencil_clkwrk_"
-        all_inst = list(instance_dict.keys())
-        vecmax_insts = [inst for inst in all_inst if inst.startswith(max_io_prefix)]
-        if len(vecmax_insts) > 1:
-            # Sort them and keep the first
-            vecmax_insts.sort()
-            keep_inst = vecmax_insts[0]
-            remove_insts = vecmax_insts[1:]
+            # Remove original connection
+            removed = False
+            pair1 = [src, dst]
+            pair2 = [dst, src]
+            if pair1 in connections:
+                connections.remove(pair1)
+                removed = True
+            elif pair2 in connections:
+                connections.remove(pair2)
+                removed = True
+            if not removed:
+                raise RuntimeError(
+                    f"[ERROR]: Expected connection between '{src}' and '{dst}' not found when inserting dummy PE."
+                )
 
-            # Remove from instance_dict
-            for r in remove_insts:
-                del instance_dict[r]
+            # Add new connections through dummy PE
+            add_conn_once(src, f"{dummy_pe_name}.data0")
+            add_conn_once(f"{dummy_pe_name}.inst", f"{dummy_const_name}.out")
+            add_conn_once(f"{dummy_pe_name}.O0", dst)
 
-            # The module "type" is layer_norm_pass2_fp["type"] = ["Record",[...]]
-            type_list = layer_norm_pass2_fp["type"][1]
+            print(f"INFO: Added dummy_max_nop PE '{dummy_pe_name}' between '{src}' and '{dst}'")
+            pe_counter += 1
 
-            # Convert instance name -> the corresponding type prefix
-            # e.g. "io16in_vec_avg_host_stencil_clkwrk_8_op_hcompute_vec_avg_glb_stencil_2_read_0"
-            # -> "vec_avg_host_stencil_clkwrk_8_op_hcompute_vec_avg_glb_stencil_2_read_0"
-            def inst_to_field_prefix(name):
-                if name.startswith("io16in_"):
-                    return name[len("io16in_") :]
-                return name
+        # Move square fp_mul PEs to after MEM.data_out_0
+        # Find all square fp_mul PEs (op_hcompute_tile_input_stencil* with fp_mul)
+        square_fp_mul_pes = []
+        for inst_name in instances:
+            if "op_hcompute_tile_input_stencil" in inst_name and "float_DW_fp_mul" in inst_name:
+                square_fp_mul_pes.append(inst_name)
 
-            keep_prefix = inst_to_field_prefix(keep_inst)
-            remove_prefixes = [inst_to_field_prefix(r) for r in remove_insts]
+        # For each square fp_mul PE, find:
+        # 1. Connections from IO to fp_mul (both data0 and data1)
+        # 2. Connection from fp_mul.O0 to MEM.data_in_0
+        # 3. The corresponding MEM bank and IO
+        for fp_mul_pe in square_fp_mul_pes:
+            # Find IO connections (both data0 and data1 should connect to same IO)
+            io_connections = []
+            mem_connection = None
+            mem_bank_name = None
 
-            # Update the type record, removing fields for the removed instances
-            new_type_list = []
-            for field_pair in type_list:
-                field_name, field_type = field_pair
-                if "vec_avg_host_stencil_clkwrk_" not in field_name:
-                    # Not a vecmax field => keep
-                    new_type_list.append(field_pair)
-                    continue
-                # It's a vecmax field => keep only if it belongs to keep_prefix
-                # (i.e. starts with keep_prefix)
-                if field_name.startswith(keep_prefix):
-                    new_type_list.append(field_pair)
-                # else skip
-            layer_norm_pass2_fp["type"][1] = new_type_list
+            for conn in connections:
+                left, right = conn[0], conn[1]
 
-            # Fix up connections: if referencing removed inst or fields, unify to keep inst
-            new_conn = []
-            for left, right in layer_norm_pass2_fp["connections"]:
-                new_left, new_right = left, right
+                # Check for IO -> fp_mul connections
+                if f"{fp_mul_pe}.data0" in right and "io16in_input_host_stencil" in left and ".out" in left:
+                    io_connections.append((left, right))
+                elif f"{fp_mul_pe}.data0" in left and "io16in_input_host_stencil" in right and ".out" in right:
+                    io_connections.append((right, left))
 
-                # If the removed instance name is in the path, unify to keep_inst
-                for rinst in remove_insts:
-                    if rinst in new_left:
-                        new_left = new_left.replace(rinst, keep_inst)
-                    if rinst in new_right:
-                        new_right = new_right.replace(rinst, keep_inst)
+                if f"{fp_mul_pe}.data1" in right and "io16in_input_host_stencil" in left and ".out" in left:
+                    io_connections.append((left, right))
+                elif f"{fp_mul_pe}.data1" in left and "io16in_input_host_stencil" in right and ".out" in right:
+                    io_connections.append((right, left))
 
-                # If the removed field prefix is in the path, unify it to keep_prefix
-                for rpref in remove_prefixes:
-                    if rpref in new_left:
-                        new_left = new_left.replace(rpref, keep_prefix)
-                    if rpref in new_right:
-                        new_right = new_right.replace(rpref, keep_prefix)
+                # Check for fp_mul.O0 -> MEM.data_in_0 connection
+                if f"{fp_mul_pe}.O0" in left and "tile_input_stencil$ub_tile_input_stencil_BANK" in right and ".data_in_0" in right:
+                    mem_connection = (left, right)
+                    mem_bank_name = right.split(".")[0]
+                elif f"{fp_mul_pe}.O0" in right and "tile_input_stencil$ub_tile_input_stencil_BANK" in left and ".data_in_0" in left:
+                    mem_connection = (right, left)
+                    mem_bank_name = left.split(".")[0]
 
-                new_conn.append([new_left, new_right])
+            if not io_connections or not mem_connection:
+                raise RuntimeError(f"[ERROR]: Could not find all connections for square fp_mul PE '{fp_mul_pe}'.")
 
-            layer_norm_pass2_fp["connections"] = new_conn
+            # Extract IO name
+            io_names = set()
+            for io_conn in io_connections:
+                io_name = io_conn[0].split(".")[0] if "io16in_input_host_stencil" in io_conn[0] else io_conn[1].split(".")[0]
+                io_names.add(io_name)
 
-        # Deduplicate final connections: remove exact duplicates
-        final_dedup = []
-        seen = set()
-        for c in layer_norm_pass2_fp["connections"]:
-            # Represent connection as tuple (left, right)
-            t = tuple(c)
-            if t not in seen:
-                seen.add(t)
-                final_dedup.append(c)
+            if len(io_names) != 1:
+                raise RuntimeError(f"[ERROR]: Expected single IO for fp_mul PE '{fp_mul_pe}', found {io_names}.")
 
-        layer_norm_pass2_fp["connections"] = final_dedup
+            io_name = next(iter(io_names))
+            io_out_port = f"{io_name}.out"
+            mem_data_out_0 = f"{mem_bank_name}.data_out_0"
+            mem_data_in_0 = f"{mem_bank_name}.data_in_0"
 
-        # Configure the IO to read the same addr of GLB repeatedly
-        # TODO: this should be replaced by reading from MEM tile instead for power efficiency
-        for inst_name, inst_config in instance_dict.items():
-            if "io16in_vec_avg" in inst_name and inst_config["modref"] == "global.IO":
-                inst_config["metadata"]["glb2out_0"]["read_data_stride"] = [0]
+            # Find tree PE connections from MEM.data_out_0
+            tree_pe_connections = []
+            for conn in connections:
+                left, right = conn[0], conn[1]
+                # Check if this connection is from MEM.data_out_0 to a tree PE
+                if mem_data_out_0 == left and "op_hcompute_tree" in right and ".data" in right:
+                    tree_pe_connections.append(right)
+                elif mem_data_out_0 == right and "op_hcompute_tree" in left and ".data" in left:
+                    tree_pe_connections.append(left)
 
-        # Overwrite the JSON
+            # Remove old connections
+            connections_to_remove_indices = []
+            fp_mul_o0 = f"{fp_mul_pe}.O0"
+            fp_mul_data0 = f"{fp_mul_pe}.data0"
+            fp_mul_data1 = f"{fp_mul_pe}.data1"
+            for idx, conn in enumerate(connections):
+                left, right = conn[0], conn[1]
+                # Remove IO -> fp_mul connections
+                if (io_out_port == left and (right == fp_mul_data0 or right == fp_mul_data1)) or \
+                   (io_out_port == right and (left == fp_mul_data0 or left == fp_mul_data1)):
+                    connections_to_remove_indices.append(idx)
+                # Remove fp_mul.O0 -> MEM.data_in_0 connection
+                elif (fp_mul_o0 == left and mem_data_in_0 == right) or \
+                     (fp_mul_o0 == right and mem_data_in_0 == left):
+                    connections_to_remove_indices.append(idx)
+                # Remove MEM.data_out_0 -> tree PE connections (will be replaced with fp_mul.O0 -> tree PE)
+                elif (mem_data_out_0 == left and right in tree_pe_connections) or (mem_data_out_0 == right and left in tree_pe_connections):
+                    connections_to_remove_indices.append(idx)
+
+            # Remove connections in reverse order to maintain indices
+            for idx in sorted(connections_to_remove_indices, reverse=True):
+                removed_conn = connections.pop(idx)
+                print(f"[DEBUG] Removed connection: {removed_conn}")
+
+            # Add new connections:
+            # 1. IO -> MEM.data_in_0 (direct, no fp_mul)
+            add_conn_once(io_out_port, mem_data_in_0)
+
+            # 2. MEM.data_out_0 -> fp_mul.data0 and fp_mul.data1 (squaring after MEM)
+            add_conn_once(mem_data_out_0, f"{fp_mul_pe}.data0")
+            add_conn_once(mem_data_out_0, f"{fp_mul_pe}.data1")
+
+            # 3. fp_mul.O0 -> tree PEs (redirected from MEM.data_out_0 -> tree PEs)
+            for tree_pe_port in tree_pe_connections:
+                add_conn_once(fp_mul_o0, tree_pe_port)
+
+            print(f"[INFO] Moved square fp_mul PE '{fp_mul_pe}' to after {mem_bank_name}.data_out_0")
+
+        # Write modified design back
         with open(json_path, "w") as f:
-            f.write(pretty_format_json(design))
-
-    def hack_for_layer_norm_pass3_fp_rv(self, json_path, bin_path):
-        return self.hack_for_layer_norm_pass3_fp_static(json_path, bin_path)
+            json.dump(design, f, indent=2)
 
     def hack_for_gelu_pass1_mu_input_fp_rv(self, json_path, bin_path):
 
