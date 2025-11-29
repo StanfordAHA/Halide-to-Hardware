@@ -2406,6 +2406,12 @@ class SelectedDesignHacker:
             if (elementwise_pe_in_left and intermediate_pe_in_right) or (elementwise_pe_in_right and intermediate_pe_in_left):
                 continue
 
+            # Skip connections between elementwise PEs (they should connect directly to output IOs, not to each other)
+            # This prevents cycles when elementwise PEs connect directly to outputs (e.g., layer_norm_pass1)
+            both_are_elementwise = (elementwise_pe_in_left and elementwise_pe_in_right)
+            if both_are_elementwise:
+                continue
+
             add_conn_once(left, right)
 
 
@@ -2786,7 +2792,8 @@ class SelectedDesignHacker:
             """
             Trace forward from output IO to find intermediate PE (like fp_add).
             Returns the intermediate PE name if found, None otherwise.
-            Intermediate PEs should have op_hcompute_output_glb_stencil in their name.
+            Intermediate PEs should have op_hcompute_output_glb_stencil in their name
+            but NOT be elementwise PEs (elementwise PEs connect directly to output IOs).
             """
             output_io_in_port = f"{output_io_name}.in"
 
@@ -2797,8 +2804,10 @@ class SelectedDesignHacker:
                     source_port = left
                     source_instance = source_port.split(".")[0]
 
-                    # Check if source is an intermediate PE
-                    if "op_hcompute_output_glb_stencil" in source_instance and ".O0" in source_port:
+                    # Check if source is an intermediate PE (not elementwise)
+                    if ("op_hcompute_output_glb_stencil" in source_instance and
+                        ".O0" in source_port and
+                        elementwise_op_pattern not in source_instance):
                         return source_instance
 
                 elif output_io_in_port == left:
@@ -2806,8 +2815,10 @@ class SelectedDesignHacker:
                     dest_port = right
                     dest_instance = dest_port.split(".")[0]
 
-                    # Check if destination is an intermediate PE
-                    if "op_hcompute_output_glb_stencil" in dest_instance and ".O0" in dest_port:
+                    # Check if destination is an intermediate PE (not elementwise)
+                    if ("op_hcompute_output_glb_stencil" in dest_instance and
+                        ".O0" in dest_port and
+                        elementwise_op_pattern not in dest_instance):
                         return dest_instance
 
             return None
@@ -3589,6 +3600,44 @@ class SelectedDesignHacker:
 
             # Connect clock enable
             add_conn_once(f"{input_buffer_mem_name}.clk_en", f"{shared_clk_const_name}.out")
+
+        # Insert dummy_max_nop PEs between all fp_add -> fp_subexp connections
+        fp_add_to_subexp_connections = []
+        for conn in connections:
+            left, right = conn[0], conn[1]
+            if ("float_DW_fp_add" in left and left.endswith(".O0") and
+                "fp_subexp" in right and right.endswith(".data1")):
+                fp_add_to_subexp_connections.append((left, right))
+            elif ("float_DW_fp_add" in right and right.endswith(".O0") and
+                  "fp_subexp" in left and left.endswith(".data1")):
+                fp_add_to_subexp_connections.append((right, left))
+
+        if not fp_add_to_subexp_connections:
+            raise RuntimeError("[ERROR]: No direct fp_add -> fp_subexp connections found; skipping dummy_max_nop insertion.")
+        else:
+            pe_counter = 0
+            for src, dst in fp_add_to_subexp_connections:
+                src_base = src.split(".O0")[0]
+                dummy_pe_name = f"{src_base}_dummy_max_nop_pe_{pe_counter}"
+                dummy_const_name = f"{src_base}_dummy_max_nop_const_{pe_counter}"
+
+                if dummy_const_name not in instances:
+                    instances[dummy_const_name] = {
+                        "genref": "coreir.const",
+                        "genargs": {"width": ["Int", 84]},
+                        "modargs": {"value": [["BitVector", 84], self.DUMMY_MAX_NOP_INSTR]},
+                    }
+
+                if dummy_pe_name not in instances:
+                    instances[dummy_pe_name] = copy.deepcopy(self.pe_tpl)
+
+                remove_conn(src, dst)
+                add_conn_once(src, f"{dummy_pe_name}.data0")
+                add_conn_once(f"{dummy_pe_name}.inst", f"{dummy_const_name}.out")
+                add_conn_once(f"{dummy_pe_name}.O0", dst)
+
+                print(f"[INFO] Inserted dummy_max_nop PE '{dummy_pe_name}' between '{src}' and '{dst}'")
+                pe_counter += 1
 
         # Overwrite the JSON
         with open(json_path, "w") as f:
