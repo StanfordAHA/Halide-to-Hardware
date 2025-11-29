@@ -3775,6 +3775,44 @@ class SelectedDesignHacker:
             # Connect clock enable
             add_conn_once(f"{input_buffer_mem_name}.clk_en", f"{shared_clk_const_name}.out")
 
+        # Insert dummy_max_nop PEs between all fp_add -> fp_subexp connections
+        fp_add_to_subexp_connections = []
+        for conn in connections:
+            left, right = conn[0], conn[1]
+            if ("float_DW_fp_add" in left and left.endswith(".O0") and
+                "fp_subexp" in right and right.endswith(".data1")):
+                fp_add_to_subexp_connections.append((left, right))
+            elif ("float_DW_fp_add" in right and right.endswith(".O0") and
+                  "fp_subexp" in left and left.endswith(".data1")):
+                fp_add_to_subexp_connections.append((right, left))
+
+        if not fp_add_to_subexp_connections:
+            raise RuntimeError("[ERROR]: No direct fp_add -> fp_subexp connections found; skipping dummy_max_nop insertion.")
+        else:
+            pe_counter = 0
+            for src, dst in fp_add_to_subexp_connections:
+                src_base = src.split(".O0")[0]
+                dummy_pe_name = f"{src_base}_dummy_max_nop_pe_{pe_counter}"
+                dummy_const_name = f"{src_base}_dummy_max_nop_const_{pe_counter}"
+
+                if dummy_const_name not in instances:
+                    instances[dummy_const_name] = {
+                        "genref": "coreir.const",
+                        "genargs": {"width": ["Int", 84]},
+                        "modargs": {"value": [["BitVector", 84], self.DUMMY_MAX_NOP_INSTR]},
+                    }
+
+                if dummy_pe_name not in instances:
+                    instances[dummy_pe_name] = copy.deepcopy(self.pe_tpl)
+
+                remove_conn(src, dst)
+                add_conn_once(src, f"{dummy_pe_name}.data0")
+                add_conn_once(f"{dummy_pe_name}.inst", f"{dummy_const_name}.out")
+                add_conn_once(f"{dummy_pe_name}.O0", dst)
+
+                print(f"[INFO] Inserted dummy_max_nop PE '{dummy_pe_name}' between '{src}' and '{dst}'")
+                pe_counter += 1
+
         # Overwrite the JSON
         with open(json_path, "w") as f:
             f.write(pretty_format_json(design))
