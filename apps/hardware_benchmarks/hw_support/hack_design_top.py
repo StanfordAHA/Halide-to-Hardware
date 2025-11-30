@@ -5174,7 +5174,7 @@ class GlobalDesignHacker:
                                 pond_name = f"{pe}_path_balance_pond"
                             else:
                                 pond_name = f"{pe}_path_balance_pond"
-                            pond_instance = copy.deepcopy(pond_tpl)
+                            pond_instance = copy.deepcopy(self.pond_tpl)
                             pond_instance["genargs"]["ID"][1] = pond_name
                             instances[pond_name] = pond_instance
 
@@ -5201,7 +5201,7 @@ class GlobalDesignHacker:
                                 pond_name = f"{pe}_path_balance_pond"
                             else:
                                 pond_name = f"{pe}_path_balance_pond"
-                            pond_instance = copy.deepcopy(pond_tpl)
+                            pond_instance = copy.deepcopy(self.pond_tpl)
                             pond_instance["genargs"]["ID"][1] = pond_name
                             instances[pond_name] = pond_instance
 
