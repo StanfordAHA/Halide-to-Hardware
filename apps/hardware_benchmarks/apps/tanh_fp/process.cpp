@@ -9,7 +9,7 @@
 #include "hw_support_utils.h"
 
 #if defined(WITH_CPU)
-#include "layer_norm_pass3_fp.h"
+#include "tanh_fp.h"
 #endif
 
 #if defined(WITH_COREIR)
@@ -19,7 +19,7 @@
 #if defined(WITH_CLOCKWORK)
 #include "clockwork_sim_platform.h"
 #include "rdai_api.h"
-#include "layer_norm_pass3_fp_clockwork.h"
+#include "tanh_fp_clockwork.h"
 #endif
 
 using namespace Halide::Tools;
@@ -27,11 +27,11 @@ using namespace Halide::Runtime;
 
 int main(int argc, char **argv) {
     std::map<std::string, std::function<void()>> functions;
-    ManyInOneOut_ProcessController<uint16_t> processor("layer_norm_pass3_fp", { "input", "pass1_avg", "pass2_std" });
+    ManyInOneOut_ProcessController<uint16_t> processor("tanh_fp", { "input" });
 
 #if defined(WITH_CPU)
     auto cpu_process = [&](auto &proc) {
-        layer_norm_pass3_fp(proc.inputs["input"], proc.inputs["pass1_avg"], proc.inputs["pass2_std"], proc.output);
+        tanh_fp(proc.inputs["input"], proc.output);
     };
     functions["cpu"] = [&]() {
         cpu_process(processor);
@@ -54,7 +54,7 @@ int main(int argc, char **argv) {
         RDAI_Platform *rdai_platform = RDAI_register_platform(&rdai_clockwork_sim_ops);
         if (rdai_platform) {
             printf("[RUN_INFO] found an RDAI platform\n");
-            layer_norm_pass3_fp_clockwork(proc.inputs["input"], proc.inputs["pass1_avg"], proc.inputs["pass2_std"], proc.output);
+            tanh_fp_clockwork(proc.inputs["input"], proc.output);
             RDAI_unregister_platform(rdai_platform);
         } else {
             printf("[RUN_INFO] failed to register RDAI platform!\n");
@@ -78,32 +78,33 @@ int main(int argc, char **argv) {
     processor.inputs["input"] = Buffer<uint16_t>(vec_len);
     auto input_copy_stencil = processor.inputs["input"];
     for (int x = 0; x < input_copy_stencil.dim(0).extent(); x++) {
-        input_copy_stencil(x) = float_to_bfloat16_process((static_cast<float>(rand()) / RAND_MAX) * 14.0f - 7.0f);
+        input_copy_stencil(x) = float_to_bfloat16_process((static_cast<float>(rand()) / RAND_MAX) * 20.0f - 10.0f);
     }
-
-    // Pass1 avg input
-    processor.inputs["pass1_avg"] = Buffer<uint16_t>(vec_len);
-    auto pass1_avg = Buffer<uint16_t>(1);
-    pass1_avg(0) = float_to_bfloat16_process(2.2f);
-
-    // Pass2 std input
-    processor.inputs["pass2_std"] = Buffer<uint16_t>(vec_len);
-    auto pass2_std = Buffer<uint16_t>(1);
-    pass2_std(0) = float_to_bfloat16_process(3.1f);
 
     // Gold output
     processor.output = Buffer<uint16_t>(vec_len);
     for (int x = 0; x < processor.inputs["input"].dim(0).extent(); x++) {
         processor.output(x) = float_to_bfloat16_process(
-            (bfloat16_to_float_process(processor.inputs["input"](x)) - bfloat16_to_float_process(pass1_avg(0))) /
-                bfloat16_to_float_process(pass2_std(0)) * 1.3f + 2.7f
+            tanhf(bfloat16_to_float_process(processor.inputs["input"](x)))
         );
     }
 
     save_halide_buffer_to_raw(processor.inputs["input"], "bin/input_host_stencil.raw");
-    save_halide_buffer_to_raw(pass1_avg, "bin/pass1_avg_host_stencil.raw");
-    save_halide_buffer_to_raw(pass2_std, "bin/pass2_std_host_stencil.raw");
     save_halide_buffer_to_raw(processor.output, "bin/hw_output.raw");
+
+    // Create glb bank config
+    using namespace glb_cfg;
+    // inputs, outputs, mu_inputs
+    const config_spec spec = {
+        {
+            tensor_spec{"input_host_stencil", {"x_coord", "E64_packed"}}
+        },
+        {
+            tensor_spec{"hw_output", {"x_coord"}}
+        },
+        {}
+    };
+    write_glb_bank_config(spec);
 
     auto output = processor.process_command(argc, argv);
 

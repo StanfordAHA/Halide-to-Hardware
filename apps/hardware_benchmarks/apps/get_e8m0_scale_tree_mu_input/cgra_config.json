@@ -1,0 +1,32 @@
+{
+  "IOs": {
+    "inputs": [
+      {
+        "name": "mu_hw_input",
+        "bitwidth": 16,
+        "shape": [64, 56, 56],
+        "pixels_per_cycle": 1,
+        "datafile": "bin/mu_input_host_stencil.raw"
+      }
+    ],
+    "output": [
+      {
+        "name": "hw_scale_output_stencil",
+        "bitwidth": 16,
+        "shape": [1, 56, 56],
+        "pixels_per_cycle": 1,
+        "datafile": "bin/hw_scale_output.raw"
+      },
+      {
+        "name": "unquantized_output_stencil",
+        "bitwidth": 16,
+        "shape": [32, 56, 56],
+        "pixels_per_cycle": 1,
+        "datafile": "bin/unquantized_output_stencil.raw"
+      }
+    ]
+  },
+  "testing": {
+    "total_cycles": 40000
+  }
+}

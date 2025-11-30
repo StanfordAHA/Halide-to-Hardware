@@ -8,6 +8,7 @@
 #include <sstream>
 #include <vector>
 #include <stdexcept>
+#include <limits>
 
 // Include Halide Buffer header
 #include "HalideBuffer.h"
@@ -225,4 +226,46 @@ extern "C" {
         return static_cast<uint16_t>(quantized_value);
     }
 
+}
+
+// Reference softmax implementation - computes stable softmax for each row independently
+// This is a well-tested, numerical stable reference implementation
+void reference_softmax_2d(const Halide::Runtime::Buffer<uint16_t>& input, Halide::Runtime::Buffer<uint16_t>& output) {
+    if (input.dimensions() != 2 || output.dimensions() != 2) {
+        throw std::runtime_error("reference_softmax_2d: input and output must be 2D buffers");
+    }
+
+    int width = input.dim(0).extent();
+    int height = input.dim(1).extent();
+
+    if (output.dim(0).extent() != width || output.dim(1).extent() != height) {
+        throw std::runtime_error("reference_softmax_2d: input and output dimensions must match");
+    }
+
+    // Process each row independently
+    for (int y = 0; y < height; y++) {
+        // Step 1: Find maximum value in the row (for numerical stability)
+        float max_val = -std::numeric_limits<float>::infinity();
+        for (int x = 0; x < width; x++) {
+            float val = bfloat16_to_float_process(input(x, y));
+            if (val > max_val) {
+                max_val = val;
+            }
+        }
+
+        // Step 2: Compute exp(x - max) for each element and sum
+        float sum_exp = 0.0f;
+        std::vector<float> exp_vals(width);
+        for (int x = 0; x < width; x++) {
+            float val = bfloat16_to_float_process(input(x, y));
+            exp_vals[x] = std::exp(val - max_val);
+            sum_exp += exp_vals[x];
+        }
+
+        // Step 3: Normalize by sum to get softmax probabilities
+        for (int x = 0; x < width; x++) {
+            float softmax_val = exp_vals[x] / sum_exp;
+            output(x, y) = float_to_bfloat16_process(softmax_val);
+        }
+    }
 }
