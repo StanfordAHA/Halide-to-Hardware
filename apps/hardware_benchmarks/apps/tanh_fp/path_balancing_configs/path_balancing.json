@@ -1,0 +1,22 @@
+{
+    "balance_lengths": {
+        "p8": 6,
+        "p2": 6,
+        "p0": 16
+    },
+    "total_stream_lengths": {
+        "p8": 768,
+        "p2": 768,
+        "p0": 768
+    },
+    "name_to_id": {
+        "op_hcompute_output_cgra_stencil$inner_compute$fp_getfint_i3137i27_i1079": "p8",
+        "op_hcompute_output_cgra_stencil$inner_compute$float_DW_fp_add_i3141_i792_dummy_max_nop_pe_0": "p2",
+        "op_hcompute_output_cgra_stencil$inner_compute$float_DW_fp_add_i3139_i792": "p0"
+    },
+    "pe_to_pond": {
+        "p8": true,
+        "p2": true,
+        "p0": true
+    }
+}

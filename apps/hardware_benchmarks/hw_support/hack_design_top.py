@@ -33,6 +33,7 @@ APPS_NEEDING_HACKS = [
     "relu_layer_multiout_fp",
     "maxpooling_dense_rv_fp",
     "fully_connected_layer_fp",
+    "tanh_fp",
 ]
 
 
@@ -6464,6 +6465,111 @@ class SelectedDesignHacker:
 
         with open(design_meta_path, "w") as f:
             json.dump(design_meta, f, indent=2)
+
+    def hack_for_tanh_fp_rv(self, json_path, bin_path):
+        """
+        Insert output buffer MEM tiles between the final fp_mul PE (hardcoded to float_DW_fp_mul_i3142i11_i1325)
+        and each output IO to handle backpressure and avoid F2G errors.
+        """
+        # Load the JSON file
+        with open(json_path, "r") as f:
+            design = json.load(f)
+
+        # Find the top module
+        design_name = "tanh_fp"
+        top_module = design["namespaces"]["global"]["modules"][design_name]
+
+        instances = top_module["instances"]
+        connections = top_module["connections"]
+
+        # The final fp_mul PE instance name
+        original_pe_name = "op_hcompute_output_cgra_stencil$inner_compute$float_DW_fp_mul_i3142i11_i1325"
+
+        if original_pe_name not in instances:
+            raise RuntimeError(f"[ERROR] PE {original_pe_name} not found.")
+
+        # Find all output IOs that connect to this PE's output
+        # Connections can be [src, dst] or [dst, src] format
+        output_io_connections = []
+        for conn in connections:
+            a, b = conn
+            # Check if this connection goes from the PE output to an output IO
+            if a.startswith(f"{original_pe_name}.O0") and "io16_hw_output_stencil_clkwrk" in b:
+                # Format: [src, dst] - PE output is source
+                io_inst_name = b.split(".in")[0]
+                output_io_connections.append((a, b, io_inst_name))
+            elif b.startswith(f"{original_pe_name}.O0") and "io16_hw_output_stencil_clkwrk" in a:
+                # Format: [dst, src] - PE output is source (reversed)
+                io_inst_name = a.split(".in")[0]
+                output_io_connections.append((b, a, io_inst_name))
+
+        # Get unique output IOs
+        unique_output_ios = list(set(io_inst_name for _, _, io_inst_name in output_io_connections))
+        num_output_ios = len(unique_output_ios)
+
+        if num_output_ios == 0:
+            raise RuntimeError(f"[ERROR] No output IOs found connected to {original_pe_name}.")
+
+        # Create MEM buffer instances and update connections
+        new_instances = {}
+        new_connections = []
+        connections_to_keep = []
+
+        # Process each connection from PE to output IO
+        for src, dst, io_inst_name in output_io_connections:
+            # Create a unique MEM buffer name for this output IO
+            mem_buffer_name = f"{original_pe_name}_output_buffer_{io_inst_name}"
+
+            # Create MEM buffer instance
+            if mem_buffer_name not in instances:
+                mem_inst = copy.deepcopy(self.mem_tpl)
+                new_instances[mem_buffer_name] = mem_inst
+
+            # Add new connections: PE -> MEM -> IO
+            new_connections.append([f"{original_pe_name}.O0", f"{mem_buffer_name}.data_in_0"])
+            new_connections.append([f"{mem_buffer_name}.data_out_0", f"{io_inst_name}.in"])
+
+        # Keep all connections except the ones from PE output to output IOs
+        for conn in connections:
+            a, b = conn
+            # Skip connections from PE output directly to output IOs (we're inserting buffers)
+            is_direct_pe_to_io = (
+                (a.startswith(f"{original_pe_name}.O0") and "io16_hw_output_stencil_clkwrk" in b) or
+                (b.startswith(f"{original_pe_name}.O0") and "io16_hw_output_stencil_clkwrk" in a)
+            )
+            if not is_direct_pe_to_io:
+                connections_to_keep.append(conn)
+
+        # Add new MEM instances
+        instances.update(new_instances)
+
+        # Update connections: keep existing (minus removed direct connections) and add new ones
+        top_module["connections"] = connections_to_keep + new_connections
+
+        # Configure io16_hw_output_stencil metadata with default 1D schedule
+        vec_len = int(self.halide_gen_args_dict["vec_len"])
+        glb_o = int(self.halide_gen_args_dict["glb_o"])
+        extent = vec_len // glb_o
+
+        for inst_name, inst_config in instances.items():
+            if "io16_hw_output_stencil" in inst_name and inst_config.get("modref") == "global.IO":
+                if "metadata" not in inst_config:
+                    inst_config["metadata"] = {}
+                if "in2glb_0" not in inst_config["metadata"]:
+                    inst_config["metadata"]["in2glb_0"] = {}
+                md = inst_config["metadata"]["in2glb_0"]
+                md["cycle_starting_addr"] = [0]
+                md["cycle_stride"] = [1]
+                md["dimensionality"] = 1
+                md["extent"] = [extent]
+                md["write_data_starting_addr"] = [0]
+                md["write_data_stride"] = [1]
+
+        # Write back the JSON
+        with open(json_path, "w") as f:
+            f.write(pretty_format_json(design))
+
+        print(f"\033[92m[INFO] Inserted {num_output_ios} output buffer MEM tiles between {original_pe_name} and output IOs\033[0m")
 
 
 class GlobalDesignHacker:
