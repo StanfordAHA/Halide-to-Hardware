@@ -1,0 +1,39 @@
+{
+  "IOs": {
+    "inputs": [
+      {
+        "name": "input_bf_act_host_stencil",
+        "bitwidth": 16,
+        "shape": [64, 56, 56],
+        "pixels_per_cycle": 1,
+        "datafile": "bin/input_bf_act_host_stencil.raw"
+      },
+      {
+        "name": "input_scale_host_stencil",
+        "bitwidth": 16,
+        "shape": [1, 56, 56],
+        "pixels_per_cycle": 1,
+        "datafile": "bin/input_scale_host_stencil.raw"
+      }
+    ],
+    "output": [
+      {
+        "name": "hw_scale_packed_output_stencil",
+        "bitwidth": 16,
+        "shape": [1, 28, 56],
+        "pixels_per_cycle": 1,
+        "datafile": "bin/hw_scale_packed_output.raw"
+      },
+      {
+        "name": "hw_output_mxint8_act_stencil",
+        "bitwidth": 16,
+        "shape": [32, 56, 56],
+        "pixels_per_cycle": 1,
+        "datafile": "bin/hw_output_mxint8_act.raw"
+      }
+    ]
+  },
+  "testing": {
+    "total_cycles": 40000
+  }
+}

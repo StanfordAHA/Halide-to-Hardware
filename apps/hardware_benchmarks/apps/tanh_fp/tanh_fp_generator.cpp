@@ -5,28 +5,24 @@ namespace {
 using namespace Halide;
 using namespace Halide::ConciseCasts;
 
-// This app does (x-E(x))/std(x)*γ+β, where x, E(x) and std(x) come from GLB
-class LayerNormPass3 : public Halide::Generator<LayerNormPass3> {
+// tanh = (exp(2*x) - 1) / (exp(2*x) + 1)
+class TANH_FP : public Halide::Generator<TANH_FP> {
 public:
     Input<Buffer<uint16_t>> input{ "input", 1 };
-    Input<Buffer<uint16_t>> pass1_avg{ "pass1_avg", 1 };
-    Input<Buffer<uint16_t>> pass2_std{ "pass2_std", 1 };
     Output<Buffer<uint16_t>> output{ "output", 1 };
 
-    GeneratorParam<int> vec_len{ "vec_len", 512 };
+    GeneratorParam<int> vec_len{ "vec_len", 768 };
 
     // glb_i determines the input glb unrolling
-    GeneratorParam<int> glb_i{ "glb_i", 8 };
+    GeneratorParam<int> glb_i{ "glb_i", 16 };
 
     // glb_o determines the output glb unrolling
-    GeneratorParam<int> glb_o{ "glb_o", 8 };
+    GeneratorParam<int> glb_o{ "glb_o", 16 };
 
     void generate() {
         /* THE ALGORITHM */
         Var x("x");
         Func hw_input("hw_input"), input_host("input_host"), input_glb("input_glb"), input_cgra("input_cgra");
-        Func hw_pass1_avg("hw_pass1_avg"), pass1_avg_host("pass1_avg_host"), pass1_avg_glb("pass1_avg_glb"), pass1_avg_cgra("pass1_avg_cgra");
-        Func hw_pass2_std("hw_pass2_std"), pass2_std_host("pass2_std_host"), pass2_std_glb("pass2_std_glb"), pass2_std_cgra("pass2_std_cgra");
         Func hw_output("hw_output"), output_glb("output_glb"), output_cgra("output_cgra");
 
         hw_input(x) = bf16(input(x));
@@ -34,19 +30,8 @@ public:
         input_glb(x) = input_host(x);
         input_cgra(x) = input_glb(x);
 
-        hw_pass1_avg(x) = bf16(pass1_avg(x));
-        pass1_avg_host(x) = hw_pass1_avg(x);
-        pass1_avg_glb(x) = pass1_avg_host(x);
-        pass1_avg_cgra(x) = pass1_avg_glb(x);
-
-        hw_pass2_std(x) = bf16(pass2_std(x));
-        pass2_std_host(x) = hw_pass2_std(x);
-        pass2_std_glb(x) = pass2_std_host(x);
-        pass2_std_cgra(x) = pass2_std_glb(x);
-
-        Expr gamma = bf16(1.3f);
-        Expr beta = bf16(2.7f);
-        output_cgra(x) = (input_cgra(x) - pass1_avg_cgra(x)) / pass2_std_cgra(x) * gamma + beta;
+        output_cgra(x) = (exp(bf16(2.0f) * input_cgra(x)) - bf16(1.0f)) / (exp(bf16(2.0f) * input_cgra(x)) + bf16(1.0f));
+        // output_cgra(x) = (exp(input_cgra(x)) - exp(-input_cgra(x))) / (exp(input_cgra(x)) + exp(-input_cgra(x)));
 
         output_glb(x) = output_cgra(x);
         hw_output(x) = output_glb(x);
@@ -87,14 +72,6 @@ public:
             input_glb.compute_at(hw_output, x_host).unroll(x, glb_i);
             input_cgra.compute_at(output_glb, x_glb).unroll(x, glb_i);
 
-            pass1_avg_host.compute_root().accelerator_input();
-            pass1_avg_glb.compute_at(hw_output, x_host).unroll(x, glb_i);
-            pass1_avg_cgra.compute_at(output_glb, x_glb).unroll(x, glb_i);
-
-            pass2_std_host.compute_root().accelerator_input();
-            pass2_std_glb.compute_at(hw_output, x_host).unroll(x, glb_i);
-            pass2_std_cgra.compute_at(output_glb, x_glb).unroll(x, glb_i);
-
         } else {  // schedule to CPU
             output_cgra.compute_root();
         }
@@ -103,4 +80,4 @@ public:
 
 }  // namespace
 
-HALIDE_REGISTER_GENERATOR(LayerNormPass3, layer_norm_pass3_fp)
+HALIDE_REGISTER_GENERATOR(TANH_FP, tanh_fp)

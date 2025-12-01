@@ -4,22 +4,15 @@
       {
         "name": "hw_input",
         "bitwidth": 16,
-        "shape": [16, 58, 58],
+        "shape": [768, 128],
         "pixels_per_cycle": 1,
         "datafile": "bin/input_host_stencil.raw"
-      },
-      {
-        "name": "hw_vec_avg",
-        "bitwidth": 16,
-        "shape": [1],
-        "pixels_per_cycle": 1,
-        "datafile": "bin/vec_avg_host_stencil.raw"
       }
     ],
     "output": {
       "name": "hw_output",
       "bitwidth": 16,
-      "shape": [16, 28, 28],
+      "shape": [768, 128],
       "pixels_per_cycle": 1,
       "datafile": "bin/hw_output_stencil.raw"
     }

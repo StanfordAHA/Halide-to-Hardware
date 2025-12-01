@@ -9,7 +9,7 @@
 #include "hw_support_utils.h"
 
 #if defined(WITH_CPU)
-#include "layer_norm_pass2_fp.h"
+#include "layer_norm_pass1_fp.h"
 #endif
 
 #if defined(WITH_COREIR)
@@ -19,7 +19,7 @@
 #if defined(WITH_CLOCKWORK)
 #include "clockwork_sim_platform.h"
 #include "rdai_api.h"
-#include "layer_norm_pass2_fp_clockwork.h"
+#include "layer_norm_pass1_fp_clockwork.h"
 #endif
 
 using namespace Halide::Tools;
@@ -27,11 +27,11 @@ using namespace Halide::Runtime;
 
 int main(int argc, char **argv) {
     std::map<std::string, std::function<void()>> functions;
-    ManyInOneOut_ProcessController<uint16_t> processor("layer_norm_pass2_fp", { "input.mat" });
+    ManyInOneOut_ProcessController<uint16_t> processor("layer_norm_pass1_fp", { "input.mat" });
 
 #if defined(WITH_CPU)
     auto cpu_process = [&](auto &proc) {
-        layer_norm_pass2_fp(proc.inputs["input.mat"], proc.output);
+        layer_norm_pass1_fp(proc.inputs["input.mat"], proc.output);
     };
     functions["cpu"] = [&]() {
         cpu_process(processor);
@@ -54,7 +54,7 @@ int main(int argc, char **argv) {
         RDAI_Platform *rdai_platform = RDAI_register_platform(&rdai_clockwork_sim_ops);
         if (rdai_platform) {
             printf("[RUN_INFO] found an RDAI platform\n");
-            layer_norm_pass2_fp_clockwork(proc.inputs["input.mat"], proc.output);
+            layer_norm_pass1_fp_clockwork(proc.inputs["input.mat"], proc.output);
             RDAI_unregister_platform(rdai_platform);
         } else {
             printf("[RUN_INFO] failed to register RDAI platform!\n");
@@ -79,9 +79,6 @@ int main(int argc, char **argv) {
 
     std::cout << "using inputs set within process.cpp" << std::endl;
     processor.inputs_preset = true;
-
-    const float gamma = 1.2f;
-    const float beta = -0.35f;
 
     // Input activation
     auto input_activation = Buffer<uint16_t>(vec_width, vec_height);
@@ -111,44 +108,12 @@ int main(int argc, char **argv) {
         }
     }
 
-    // Final gold layer norm output
-    const float epsilon = 1e-5f;
-    auto gold_output = Buffer<uint16_t>(vec_width, vec_height);
-    std::vector<float> row_data(vec_width, 0.0f);
-
-    for (int y = 0; y < gold_output.dim(1).extent(); y++) {
-        // Load the row into float workspace so we can match PyTorch reference behavior
-        for (int x = 0; x < gold_output.dim(0).extent(); x++) {
-            row_data[x] = bfloat16_to_float_process(input_activation(x, y));
-        }
-
-        float mean = 0.0f;
-        for (const float val : row_data) {
-            mean += val;
-        }
-        mean /= static_cast<float>(vec_width);
-
-        float variance = 0.0f;
-        for (const float val : row_data) {
-            const float diff = val - mean;
-            variance += diff * diff;
-        }
-        variance /= static_cast<float>(vec_width);
-
-        const float inv_std = 1.0f / sqrtf(variance + epsilon);
-        for (int x = 0; x < gold_output.dim(0).extent(); x++) {
-            const float normalized = (row_data[x] - mean) * inv_std;
-            const float layer_norm_val = normalized * gamma + beta;
-            gold_output(x, y) = float_to_bfloat16_process(layer_norm_val);
-        }
-    }
-
     // Define fake processor input and output placeholer buffers
     processor.inputs["input.mat"] = Buffer<uint16_t>(vec_width_fake, vec_height_fake);
     processor.output = Buffer<uint16_t>(vec_width_fake, vec_height_fake);
 
-    save_halide_buffer_to_raw(pass1_output, "bin/input_host_stencil.raw");
-    save_halide_buffer_to_raw(gold_output, "bin/hw_output.raw");
+    save_halide_buffer_to_raw(input_activation, "bin/input_host_stencil.raw");
+    save_halide_buffer_to_raw(pass1_output, "bin/hw_output.raw");
 
     // Create glb bank config
     using namespace glb_cfg;

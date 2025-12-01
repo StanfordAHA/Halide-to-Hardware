@@ -5,7 +5,7 @@ namespace {
 using namespace Halide;
 using namespace Halide::ConciseCasts;
 
-class LayerNormPass2 : public Halide::Generator<LayerNormPass2> {
+class LayerNormPass1 : public Halide::Generator<LayerNormPass1> {
 public:
     Input<Buffer<uint16_t>> input{ "input", 2 };
     Output<Buffer<uint16_t>> output{ "output", 2 };
@@ -19,10 +19,8 @@ public:
 
     void generate() {
         /* THE ALGORITHM */
-        // Input: BF16 x - E(x) stored in 4 GLB Tiles
-        // Output: BF16 out/(sqrt(sum(out^2)))*Nγ+β stored in 4 GLB Tiles
-        const float gamma = 1.2f;
-        const float beta = -0.35f;
+        // Input: BF16 activation stored in 4 GLB Tiles
+        // Output: BF16 x - sum(x)*(1/N) stored in 4 GLB Tiles
         Var x("x"), y("y");
         Func hw_input("hw_input"), input_host("input_host"), input_glb("input_glb"), input_cgra("input_cgra");
         Func hw_output("hw_output"), output_glb("output_glb"), output_cgra("output_cgra"), sum_cgra("sum_cgra");
@@ -37,7 +35,7 @@ public:
         Var tile("tile"), xi("xi");
         Func tile_input("tile_input");
         // x = tile * tile_size + xi, 0 <= xi < tile_size
-        tile_input(tile, xi, y) = input_cgra(tile * tile_size + xi, y) * input_cgra(tile * tile_size + xi, y);
+        tile_input(tile, xi, y) = input_cgra(tile * tile_size + xi, y);
 
         // Compute the number of stages needed
         const int total_stages = int(tree_stages);
@@ -66,10 +64,9 @@ public:
         sum_cgra(y) = bf16(0);
         sum_cgra(y) += tile_sum(r.x, y);
 
-        // output_cgra(x, y) = input_cgra(x, y) / exp(bf16(0.5f) * log(sum_cgra(y))) * bf16(float(vec_width) * gamma) + bf16(beta);
-        output_cgra(x, y) = bf16(sqrtf(float(vec_width)) * gamma) / exp(bf16(0.5f) * log(sum_cgra(y)));
+        output_cgra(x, y) = sum_cgra(y) * bf16(-1.0f / float(vec_width));
 
-        output_glb(x, y) = input_cgra(x, y) * output_cgra(x, y) + bf16(beta);
+        output_glb(x, y) = input_cgra(x, y) + output_cgra(x, y);
         hw_output(x, y) = output_glb(x, y);
         output(x, y) = u16(hw_output(x, y));
 
@@ -140,4 +137,4 @@ public:
 
 }  // namespace
 
-HALIDE_REGISTER_GENERATOR(LayerNormPass2, layer_norm_pass2_fp)
+HALIDE_REGISTER_GENERATOR(LayerNormPass1, layer_norm_pass1_fp)
