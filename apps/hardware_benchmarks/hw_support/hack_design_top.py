@@ -32,6 +32,7 @@ APPS_NEEDING_HACKS = [
     "get_apply_e8m0_scale_fp",
     "relu_layer_multiout_fp",
     "maxpooling_dense_rv_fp",
+    "maxpooling_dense_rv_mem_buf_fp",
     "fully_connected_layer_fp",
     "tanh_fp",
 ]
@@ -6571,6 +6572,617 @@ class SelectedDesignHacker:
 
         print(f"\033[92m[INFO] Inserted {num_output_ios} output buffer MEM tiles between {original_pe_name} and output IOs\033[0m")
 
+    def hack_for_maxpooling_dense_rv_mem_buf_fp_rv(self, json_path, bin_path):
+        '''
+        Unhacked compute graph consists of unroll number of PE chains with IOs and MEMs servring as line buffers.
+        Some chain use one MEM and some use two, while one MEM per chain is enough.
+        To handle multiple channels per lane, unhacked graph uses n_ic // unroll FIFOs between adjacent PEs to interleave across channels.
+        Dense RV maxpooling is not compilable with clockwork, so there are redundant FIFOs for compute delay matching.
+        This hack collapses all redundant FIFOs, removes redundant MEMs and constant PEs, hardcodes the first max PE instruction
+        with DUMMY_MAX_NOP_INSTR, and configures GLB DMA to handle multiple channels per lane.
+        Add mem buffering to use different ports for each PE to avoid path imbalance.
+        '''
+        with open(json_path, "r") as f:
+            design = json.load(f)
+
+        top_module_name = "maxpooling_dense_rv_mem_buf_fp"
+        module = design["namespaces"]["global"]["modules"][top_module_name]
+        instances = module["instances"]
+        connections = module["connections"]
+
+        # -----Collapse all shift FIFO $d_reg chains-----
+        # Define helpers to identify shift chains
+        def is_shift(edge_point: str) -> bool:
+            return "$d_reg" in edge_point
+
+        def is_shift_in(edge_point: str) -> bool:
+            return is_shift(edge_point) and edge_point.endswith(".in")
+
+        def is_shift_out(edge_point: str) -> bool:
+            return is_shift(edge_point) and edge_point.endswith(".out")
+
+        def inst_of(edge_point: str) -> str:
+            return edge_point.rsplit(".", 1)[0]
+
+        # Collect directed views of shift chains
+        shift_in_driver = {}
+        shift_out_fanout = defaultdict(set)
+        for a, b in connections:
+            if is_shift_out(a): shift_out_fanout[a].add(b)
+            if is_shift_out(b): shift_out_fanout[b].add(a)
+            if is_shift_in(a): shift_in_driver[a] = b
+            if is_shift_in(b): shift_in_driver[b] = a
+
+        head_in_ports = [ip for ip, drv in shift_in_driver.items() if not is_shift_out(drv)]
+
+        bridged = set()
+        for head_in in head_in_ports:
+            upstream_src = shift_in_driver[head_in]
+            head_out = f"{inst_of(head_in)}.out"
+            stack = [head_out]
+            visited_out = set()
+            sinks = set()
+            while stack:
+                outp = stack.pop()
+                if outp in visited_out:
+                    continue
+                visited_out.add(outp)
+                for nxt in shift_out_fanout.get(outp, []):
+                    if is_shift_in(nxt):
+                        stack.append(f"{inst_of(nxt)}.out")
+                    else:
+                        sinks.add(nxt)
+            for dst in sinks:
+                bridged.add((dst, upstream_src))
+
+        kept = []
+        for a, b in connections:
+            if is_shift(a) or is_shift(b):
+                continue
+            kept.append([a, b])
+
+        tmp = []
+        seen = set()
+        for d, s in kept + [[d, s] for (d, s) in sorted(bridged)]:
+            key = (d, s)
+            if key in seen: continue
+            seen.add(key)
+            tmp.append([d, s])
+        connections = tmp
+
+        for name in list(instances.keys()):
+            if "$d_reg" in name:
+                del instances[name]
+
+        # -----Collect PE chains-----
+        # Define patterns for PEs, MEMs, and IOs. ChatGPT generated regexes.
+        floatmax_pat = re.compile(
+            r"^(?P<base>op_hcompute_max_pooling_inner_stencil_(?P<chain>\d+)"
+            r"\$inner_compute\$float_max_[^\.]+)\.(?P<pin>.+)$"
+        )
+        const_pat = re.compile(
+            r"^(?P<base>op_hcompute_max_pooling_inner_stencil(?:_(?P<chain>\d+))?"
+            r"\$inner_compute\$const_i\d+_i\d+)\.(?P<pin>.+)$"
+        )
+        const_inst_pat = re.compile(
+            r"^op_hcompute_max_pooling_inner_stencil(?:_\d+)?\$inner_compute\$c\d+\.out$"
+        )
+        io_out_pat = re.compile(r"^io16in_input_host_stencil_clkwrk_\d+_.+_read_0\.out$")
+        mem_out_pat = re.compile(
+            r"^(?P<mem>input_host_global_wrapper_global_wrapper_stencil"
+            r"\$ub_input_host_global_wrapper_global_wrapper_stencil_[^\.]+_garnet)\.data_out_(?P<port>[01])$"
+        )
+        mem_any_pat = re.compile(
+            r"^(?P<mem>input_host_global_wrapper_global_wrapper_stencil"
+            r"\$ub_input_host_global_wrapper_global_wrapper_stencil_[^\.]+_garnet)\."
+        )
+
+        # Collect all max PEs per chain with O0->data1 conns
+        chain_pe_set = defaultdict(set)
+        pe_next = defaultdict(dict)
+        pe_prev = defaultdict(dict)
+
+        for a, b in connections:
+            for ep in (a, b):
+                m = floatmax_pat.match(ep)
+                if m:
+                    chain_pe_set[int(m.group("chain"))].add(m.group("base"))
+            for src, dst in ((a, b), (b, a)):
+                ms = floatmax_pat.match(src)
+                md = floatmax_pat.match(dst)
+                if not (ms and md):
+                    continue
+                if ms.group("pin") != "O0" or md.group("pin") != "data1":
+                    continue
+                c = int(ms.group("chain"))
+                if c != int(md.group("chain")):
+                    continue
+                u = ms.group("base")
+                v = md.group("base")
+                pe_next[c][u] = v
+                pe_prev[c][v] = u
+
+        # Identify head max PE from const.O0 -> max.data0
+        chain_head_max = {}
+        chain_const_base = {}
+        for a, b in connections:
+            for src, dst in ((a, b), (b, a)):
+                mc = const_pat.match(src)
+                md = floatmax_pat.match(dst)
+                if not (mc and md):
+                    continue
+                if mc.group("pin") != "O0" or md.group("pin") != "data0":
+                    continue
+                chain = int(mdst_chain := md.group("chain"))
+                chain_head_max[chain] = md.group("base")
+                chain_const_base[chain] = mc.group("base")
+
+        # Order PEs: walk from first max PE via O0->data1
+        chain_to_ordered_pes = {}
+        for chain, pes in chain_pe_set.items():
+            head_max = chain_head_max.get(chain)
+            if not head_max:
+                head_candidates = [p for p in pes if p not in pe_prev[chain]]
+                head_max = sorted(head_candidates)[0] if head_candidates else sorted(pes)[0]
+            order = []
+            cur = head_max
+            visited = set()
+            while cur and cur not in visited:
+                order.append(cur)
+                visited.add(cur)
+                cur = pe_next[chain].get(cur)
+            chain_to_ordered_pes[chain] = order
+
+        chain_ids = [c for c in sorted(chain_to_ordered_pes) if len(chain_to_ordered_pes[c]) >= 1]
+
+        # Identify first max PE per chain and collect old const instruction instances connected to them
+        first_pe_per_chain = {}
+        old_const_inst_to_delete = set()
+        for c in chain_ids:
+            ordered = chain_to_ordered_pes[c]
+            if not ordered:
+                continue
+            first_pe = ordered[0]
+            first_pe_per_chain[c] = first_pe
+            # Find const instruction instances connected to first PE's .inst port
+            for a, b in connections:
+                for src, dst in ((a, b), (b, a)):
+                    if const_inst_pat.match(src) and dst == first_pe + ".inst":
+                        # Extract node name
+                        const_inst_base = src.rsplit(".", 1)[0]
+                        old_const_inst_to_delete.add(const_inst_base)
+
+        # Allowed data1 edges: max PE cascade O0->data1
+        allowed_d1 = set()
+        for c in chain_to_ordered_pes:
+            ordered = chain_to_ordered_pes[c]
+            if not ordered:
+                continue
+            # PEk.O0 -> PE(k+1).data1
+            for u, v in zip(ordered[:-1], ordered[1:]):
+                allowed_d1.add((v + ".data1", u + ".O0"))
+
+        # -----Identify IO and MEMs per chain and only keep one MEM per chain-----
+        chain_io = {}
+        chain_mems = defaultdict(Counter)
+        for a, b in connections:
+            for src, dst in ((a, b), (b, a)):
+                if io_out_pat.match(src):
+                    md = floatmax_pat.match(dst)
+                    if md and md.group("pin") == "data0":
+                        chain_io[int(md.group("chain"))] = src
+                mout = mem_out_pat.match(src)
+                mdst = floatmax_pat.match(dst)
+                if mout and mdst and mdst.group("pin") == "data0":
+                    chain = int(mdst.group("chain"))
+                    chain_mems[chain][mout.group("mem")] += 1
+
+        chain_mem_keep = {}
+        for c in chain_ids:
+            if chain_mems[c]:
+                chain_mem_keep[c] = chain_mems[c].most_common(1)[0][0]
+            else:
+                any_mem = next((n for n in instances if mem_any_pat.match(n)), None)
+                if any_mem:
+                    chain_mem_keep[c] = any_mem
+
+        # -----Remove old feeds into PE.data0 and mark MEMs to delete-----
+        # Since we're creating new MEMs, mark all old MEMs for deletion
+        to_delete_mems = set()
+        for c in chain_ids:
+            # Delete all old MEMs for this chain (we'll create new ones)
+            for mname in chain_mems[c]:
+                to_delete_mems.add(mname)
+
+        # Determine compute PEs
+        pe_data0_targets = set()
+        for c in chain_ids:
+            ordered = chain_to_ordered_pes[c]
+            for base in ordered:
+                pe_data0_targets.add(base + ".data0")
+
+        filtered = []
+        for a, b in connections:
+            drop = False
+
+            # Drop edges with deleted MEMs
+            for ep in (a, b):
+                ma = mem_any_pat.match(ep)
+                if ma and ma.group("mem") in to_delete_mems:
+                    drop = True
+                    break
+            if drop:
+                continue
+
+            # Drop edges with constant PEs (will be removed)
+            for ep in (a, b):
+                if const_pat.match(ep):
+                    drop = True
+                    break
+            if drop:
+                continue
+
+            # Drop edges from old const instruction instances to first max PE.inst
+            for src, dst in ((a, b), (b, a)):
+                if const_inst_pat.match(src):
+                    const_inst_base = src.rsplit(".", 1)[0]
+                    if const_inst_base in old_const_inst_to_delete and dst.endswith(".inst"):
+                        drop = True
+                        break
+            if drop:
+                continue
+
+            # Drop edges with compute PE.data0 targets waiting to be rewired
+            if a in pe_data0_targets or b in pe_data0_targets:
+                continue
+
+            # Drop edges with MEM.data_out_* -> PE.data0 (even for kept MEMs and waiting to be rewired)
+            for src, dst in ((a, b), (b, a)):
+                if mem_out_pat.match(src) and dst in pe_data0_targets:
+                    drop = True
+                    break
+            if drop:
+                continue
+
+            # Drop edges into max PE.data1 unless it is explicitly allowed
+            def ends_at_disallowed_d1(x, y):
+                return (x.endswith(".data1") and floatmax_pat.match(x) and (x, y) not in allowed_d1)
+
+            if ends_at_disallowed_d1(a, b) or ends_at_disallowed_d1(b, a):
+                continue
+
+            filtered.append([a, b])
+        connections = filtered
+
+        # -----Create four MEMs per chain and wire connections without branching-----
+        # Define helper to add connections
+        def add_conn(dst: str, src: str):
+            connections.append([dst, src])
+
+        # Get a template MEM from existing MEMs to use as base
+        template_mem = None
+        # First try to get from chain_mem_keep
+        for c in chain_ids:
+            old = chain_mem_keep.get(c)
+            if old and old in instances:
+                template_mem = instances[old]
+                break
+        # If not found, try to get any MEM from instances
+        if not template_mem:
+            for inst_name, inst_data in instances.items():
+                if mem_any_pat.match(inst_name):
+                    template_mem = inst_data
+                    break
+        # Final fallback: use mem_tpl
+        if not template_mem:
+            template_mem = copy.deepcopy(self.mem_tpl)
+
+        for c in chain_ids:
+            ordered = chain_to_ordered_pes[c]
+            if not ordered:
+                continue
+
+            compute_pes = ordered
+
+            io_src = chain_io.get(c)
+            if not io_src:
+                # Pick any io.out in design
+                for a, b in connections:
+                    if io_out_pat.match(a): io_src = a; break
+                    if io_out_pat.match(b): io_src = b; break
+            if not io_src:
+                continue
+
+            # Create const instruction for first max PE
+            first_pe = compute_pes[0] if compute_pes else None
+            if first_pe:
+                const_inst_name = f"first_pe_c{c}_inst"
+                if const_inst_name not in instances:
+                    instances[const_inst_name] = {
+                        "genref": "coreir.const",
+                        "genargs": {"width": ["Int", 84]},
+                        "modargs": {"value": [["BitVector", 84], self.DUMMY_MAX_NOP_INSTR]},
+                    }
+                add_conn(first_pe + ".inst", const_inst_name + ".out")
+
+            # Create four MEMs per chain: mem_c{c}_0, mem_c{c}_1, mem_c{c}_2, mem_c{c}_3
+            mem_names = []
+            clk_en_names = []
+            for mem_idx in range(4):
+                mem_name = f"mem_c{c}_{mem_idx}"
+                clk_en_name = f"mem_c{c}_{mem_idx}_clk_en_const"
+
+                # Create MEM instance
+                if mem_name not in instances:
+                    instances[mem_name] = copy.deepcopy(template_mem)
+
+                # Create clk_en_const for this MEM
+                if clk_en_name not in instances:
+                    instances[clk_en_name] = copy.deepcopy(self.const_clk_tpl)
+
+                mem_names.append(mem_name)
+                clk_en_names.append(clk_en_name)
+
+                # Connect clk_en
+                add_conn(mem_name + ".clk_en", clk_en_name + ".out")
+
+                # Connect IO to MEM data_in_0
+                add_conn(mem_name + ".data_in_0", io_src)
+
+            # -----Add dummy_max_nop_in PEs at the beginning of each PE chain-----
+            dummy_max_nop_in = int(self.halide_gen_args_dict.get("dummy_max_nop_in", 0))
+            first_pe_data0_src = io_src  # Default: connect PE0 directly to IO
+
+            if dummy_max_nop_in > 0 and first_pe:
+                # Create dummy_max_nop_in PEs for this chain
+                dummy_pe_names_in = []
+                dummy_const_names_in = []
+                for i in range(dummy_max_nop_in):
+                    dummy_pe_name = f"dummy_max_nop_in_c{c}_pe{i}"
+                    dummy_const_name = f"dummy_max_nop_in_c{c}_const{i}"
+
+                    # Create const instruction instance
+                    if dummy_const_name not in instances:
+                        instances[dummy_const_name] = {
+                            "genref": "coreir.const",
+                            "genargs": {"width": ["Int", 84]},
+                            "modargs": {"value": [["BitVector", 84], self.DUMMY_MAX_NOP_INSTR]},
+                        }
+
+                    # Create PE instance
+                    if dummy_pe_name not in instances:
+                        instances[dummy_pe_name] = {"modref": "global.PE"}
+
+                    dummy_pe_names_in.append(dummy_pe_name)
+                    dummy_const_names_in.append(dummy_const_name)
+
+                # Wire IO to first dummy PE
+                if dummy_pe_names_in:
+                    add_conn(dummy_pe_names_in[0] + ".data0", io_src)
+                    add_conn(dummy_pe_names_in[0] + ".inst", dummy_const_names_in[0] + ".out")
+
+                    # Wire up dummy PEs in chain: dummy[i].O0 -> dummy[i+1].data0
+                    for i in range(len(dummy_pe_names_in) - 1):
+                        add_conn(dummy_pe_names_in[i+1] + ".data0", dummy_pe_names_in[i] + ".O0")
+                        add_conn(dummy_pe_names_in[i+1] + ".inst", dummy_const_names_in[i+1] + ".out")
+
+                    # Last dummy PE's O0 will connect to PE0's data0
+                    first_pe_data0_src = dummy_pe_names_in[-1] + ".O0"
+
+            # Wire PEs: PE0 from IO (or last dummy PE if dummy_max_nop_in > 0), PE1-8 from MEM outputs
+            # PE0: from IO or last dummy PE
+            if len(compute_pes) >= 1:
+                add_conn(compute_pes[0] + ".data0", first_pe_data0_src)
+
+            # PE1: from mem_c{c}_0.data_out_0
+            if len(compute_pes) >= 2:
+                add_conn(compute_pes[1] + ".data0", mem_names[0] + ".data_out_0")
+
+            # PE2: from mem_c{c}_0.data_out_1
+            if len(compute_pes) >= 3:
+                add_conn(compute_pes[2] + ".data0", mem_names[0] + ".data_out_1")
+
+            # PE3: from mem_c{c}_1.data_out_0
+            if len(compute_pes) >= 4:
+                add_conn(compute_pes[3] + ".data0", mem_names[1] + ".data_out_0")
+
+            # PE4: from mem_c{c}_1.data_out_1
+            if len(compute_pes) >= 5:
+                add_conn(compute_pes[4] + ".data0", mem_names[1] + ".data_out_1")
+
+            # PE5: from mem_c{c}_2.data_out_0
+            if len(compute_pes) >= 6:
+                add_conn(compute_pes[5] + ".data0", mem_names[2] + ".data_out_0")
+
+            # PE6: from mem_c{c}_2.data_out_1
+            if len(compute_pes) >= 7:
+                add_conn(compute_pes[6] + ".data0", mem_names[2] + ".data_out_1")
+
+            # PE7: from mem_c{c}_3.data_out_0
+            if len(compute_pes) >= 8:
+                add_conn(compute_pes[7] + ".data0", mem_names[3] + ".data_out_0")
+
+            # PE8: from mem_c{c}_3.data_out_1
+            if len(compute_pes) >= 9:
+                add_conn(compute_pes[8] + ".data0", mem_names[3] + ".data_out_1")
+
+        # -----Delete unused MEMs and constant PEs, drop dangling edges-----
+        for m in to_delete_mems:
+            if m in instances:
+                del instances[m]
+
+        # Delete constant PEs
+        for name in list(instances.keys()):
+            if const_pat.match(name):
+                del instances[name]
+
+        # Delete only old const instruction instances connected to first max PE in each chain
+        for name in old_const_inst_to_delete:
+            if name in instances:
+                del instances[name]
+
+        deleted_prefixes = tuple(m + "." for m in to_delete_mems)
+        pruned = []
+        seen = set()
+        for d, s in connections:
+            if d.startswith(deleted_prefixes) or s.startswith(deleted_prefixes):
+                continue
+            key = (d, s)
+            if key in seen:
+                continue
+            seen.add(key)
+            pruned.append([d, s])
+
+        module["connections"] = pruned
+
+        # -----Add dummy_max_nop PEs at the end of each PE chain lane before output IOs-----
+        dummy_max_nop = int(self.halide_gen_args_dict.get("dummy_max_nop", 0))
+        if dummy_max_nop > 0:
+            # Pattern to match output IOs (for maxpooling_dense_rv_mem_buf_fp)
+            output_io_pat = re.compile(r"^io16.*hw_output.*\.in$")
+
+            # Find the last PE in each chain (the one without a next PE)
+            chain_last_pe = {}
+            for c in chain_ids:
+                ordered = chain_to_ordered_pes[c]
+                if not ordered:
+                    continue
+                if ordered:
+                    # Last PE is the last one in the compute PEs
+                    chain_last_pe[c] = ordered[-1]
+
+            # Find connections from last PE.O0 to output IO.in
+            pe_to_io_connections = []
+            for idx, conn in enumerate(pruned):
+                dst, src = conn[0], conn[1]
+                # Check if src is a last PE's O0 and dst is an output IO
+                for chain, last_pe in chain_last_pe.items():
+                    if src == f"{last_pe}.O0" and output_io_pat.match(dst):
+                        pe_to_io_connections.append((idx, chain, last_pe, dst))
+                        break
+                    # Also check reverse direction
+                    if dst == f"{last_pe}.O0" and output_io_pat.match(src):
+                        pe_to_io_connections.append((idx, chain, last_pe, src))
+                        break
+
+            # Remove connections to be rewired (process in reverse order to maintain indices)
+            indices_to_remove = sorted([idx for idx, _, _, _ in pe_to_io_connections], reverse=True)
+            for idx in indices_to_remove:
+                pruned.pop(idx)
+
+            # Create dummy PEs and rewire connections
+            for _, chain, last_pe, io_in_port in pe_to_io_connections:
+
+                # Create dummy_max_nop PEs for this chain
+                dummy_pe_names = []
+                dummy_const_names = []
+                for i in range(dummy_max_nop):
+                    dummy_pe_name = f"dummy_max_nop_c{chain}_pe{i}"
+                    dummy_const_name = f"dummy_max_nop_c{chain}_const{i}"
+
+                    # Create const instruction instance
+                    if dummy_const_name not in instances:
+                        instances[dummy_const_name] = {
+                            "genref": "coreir.const",
+                            "genargs": {"width": ["Int", 84]},
+                            "modargs": {"value": [["BitVector", 84], self.DUMMY_MAX_NOP_INSTR]},
+                        }
+
+                    # Create PE instance
+                    if dummy_pe_name not in instances:
+                        instances[dummy_pe_name] = {"modref": "global.PE"}
+
+                    dummy_pe_names.append(dummy_pe_name)
+                    dummy_const_names.append(dummy_const_name)
+
+                # Wire up the chain: last_pe.O0 -> first_dummy.data0
+                if dummy_pe_names:
+                    pruned.append([f"{dummy_pe_names[0]}.data0", f"{last_pe}.O0"])
+                    pruned.append([f"{dummy_pe_names[0]}.inst", f"{dummy_const_names[0]}.out"])
+
+                    # Wire up dummy PEs in chain: dummy[i].O0 -> dummy[i+1].data0
+                    for i in range(len(dummy_pe_names) - 1):
+                        pruned.append([f"{dummy_pe_names[i+1]}.data0", f"{dummy_pe_names[i]}.O0"])
+                        pruned.append([f"{dummy_pe_names[i+1]}.inst", f"{dummy_const_names[i+1]}.out"])
+
+                    # Wire last dummy PE to output IO
+                    pruned.append([io_in_port, f"{dummy_pe_names[-1]}.O0"])
+                else:
+                    # If dummy_max_nop is 0, just reconnect (shouldn't happen due to check above)
+                    pruned.append([io_in_port, f"{last_pe}.O0"])
+
+            # Update module connections
+            module["connections"] = pruned
+
+        # -----Configure input and output IOs DMA-----
+        img_size = int(self.halide_gen_args_dict["in_img"])
+        n_ic = int(self.halide_gen_args_dict["n_ic"])
+        ksize = int(self.halide_gen_args_dict["ksize"])
+        stride = int(self.halide_gen_args_dict["stride"])
+        unroll = int(self.halide_gen_args_dict["unroll"])
+        channel_per_lane = n_ic // unroll
+        out_img_size = (img_size - ksize) // stride + 1
+        cycle_stride_y = stride * ((img_size // stride) + (ksize - 1))
+        row_tail_cycles = (out_img_size - 1) * stride
+        cycle_stride_c = row_tail_cycles + stride * cycle_stride_y - img_size
+        for io_instance in instances:
+            # Two cases:
+            # 1. n_ic == unroll, then each IO stores data continously
+            # 2. n_ic // unroll > 1, then needs n_ic // unroll blocks with read/write data stride
+            if "io16in_input_host_stencil" in io_instance:
+                if n_ic == unroll:
+                    instances[io_instance]["metadata"]["glb2out_0"]["cycle_starting_addr"] = [0]
+                    instances[io_instance]["metadata"]["glb2out_0"]["cycle_stride"] = [1]
+                    instances[io_instance]["metadata"]["glb2out_0"]["dimensionality"] = 1
+                    instances[io_instance]["metadata"]["glb2out_0"]["extent"] = [img_size * img_size]
+                    instances[io_instance]["metadata"]["glb2out_0"]["read_data_starting_addr"] = [0]
+                    instances[io_instance]["metadata"]["glb2out_0"]["read_data_stride"] = [1]
+                else:
+                    assert n_ic % unroll == 0, "n_ic must be divisible by unroll"
+                    instances[io_instance]["metadata"]["glb2out_0"]["cycle_starting_addr"] = [0]
+                    instances[io_instance]["metadata"]["glb2out_0"]["cycle_stride"] = [1, 1]
+                    instances[io_instance]["metadata"]["glb2out_0"]["dimensionality"] = 2
+                    instances[io_instance]["metadata"]["glb2out_0"]["extent"] = [(img_size - 1) * img_size, channel_per_lane]
+                    instances[io_instance]["metadata"]["glb2out_0"]["read_data_starting_addr"] = [0]
+                    instances[io_instance]["metadata"]["glb2out_0"]["read_data_stride"] = [channel_per_lane, 1 - channel_per_lane * ((img_size - 1) * img_size - 1)]
+
+            elif "io16_hw_output" in io_instance:
+                if n_ic == unroll:
+                    # Skip dummy data for line buffer shifting at the beginning
+                    # Which is two lines of data plus the kernel size - 1
+                    instances[io_instance]["metadata"]["in2glb_0"]["cycle_starting_addr"] = [img_size * 2 + ksize - 1]
+                    # instances[io_instance]["metadata"]["in2glb_0"]["cycle_stride"] = [stride, img_size * stride]
+                    # Directly use "hardware-friendly" cycle stride
+                    instances[io_instance]["metadata"]["in2glb_0"]["cycle_stride"] = [stride, img_size * stride - (out_img_size - 1) * stride]
+                    instances[io_instance]["metadata"]["in2glb_0"]["dimensionality"] = 2
+                    instances[io_instance]["metadata"]["in2glb_0"]["extent"] = [out_img_size, out_img_size]
+                    instances[io_instance]["metadata"]["in2glb_0"]["write_data_starting_addr"] = [0]
+                    instances[io_instance]["metadata"]["in2glb_0"]["write_data_stride"] = [1, out_img_size]
+                else:
+                    assert n_ic % unroll == 0, "n_ic must be divisible by unroll"
+                    instances[io_instance]["metadata"]["in2glb_0"]["cycle_starting_addr"] = [img_size * 2 + ksize - 1]
+                    # instances[io_instance]["metadata"]["in2glb_0"]["cycle_stride"] = [stride, img_size * stride - (out_img_size - 1) * stride, img_size * 2 + ksize]
+                    instances[io_instance]["metadata"]["in2glb_0"]["cycle_stride"] = [stride, img_size * stride - row_tail_cycles, cycle_stride_c]
+                    instances[io_instance]["metadata"]["in2glb_0"]["dimensionality"] = 3
+                    instances[io_instance]["metadata"]["in2glb_0"]["extent"] = [out_img_size, out_img_size, channel_per_lane]
+                    instances[io_instance]["metadata"]["in2glb_0"]["write_data_starting_addr"] = [0]
+                    instances[io_instance]["metadata"]["in2glb_0"]["write_data_stride"] = [channel_per_lane, channel_per_lane, 1 - channel_per_lane * (out_img_size * out_img_size - 1)]
+
+        # -----Overwrite the JSON-----
+        with open(json_path, "w") as f:
+            f.write(pretty_format_json(design))
+
+        # -----Update design_meta_halide.json with correct input and output shapes-----
+        design_meta_path = os.path.join(bin_path, "design_meta_halide.json")
+        with open(design_meta_path, "r") as f:
+            design_meta = json.load(f)
+        assert len(design_meta["IOs"]["inputs"]) == 1, "Expected only one input"
+        assert len(design_meta["IOs"]["outputs"]) == 1, "Expected only one output"
+        design_meta["IOs"]["inputs"][0]["shape"] = [n_ic, img_size, img_size]
+        design_meta["IOs"]["outputs"][0]["shape"] = [n_ic, (img_size - ksize) // stride + 1, (img_size - ksize) // stride + 1]
+
+        with open(design_meta_path, "w") as f:
+            json.dump(design_meta, f, indent=2)
 
 class GlobalDesignHacker:
     """
