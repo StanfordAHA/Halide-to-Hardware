@@ -141,17 +141,17 @@ int main( int argc, char **argv ) {
               << real_output.dim(2).extent() << "\n";
 
     // Check for gold tensors
-    bool use_resnet_gold = std::filesystem::exists("resnet18_gold_tensors/input_host_stencil_0_0_0_0.raw");
+    bool use_resnet_gold = std::filesystem::exists("resnet18_real_tensors/input_host_stencil_0_0_0_0.raw");
     if (use_resnet_gold) {
         std::cout << "Using ResNet18 gold tensors" << std::endl;
         // Copy gold tensors to bin directory
         std::filesystem::copy_file(
-            "resnet18_gold_tensors/input_host_stencil_0_0_0_0.raw",
+            "resnet18_real_tensors/input_host_stencil_0_0_0_0.raw",
             "bin/input_host_stencil.raw",
             std::filesystem::copy_options::overwrite_existing
         );
         std::filesystem::copy_file(
-            "resnet18_gold_tensors/hw_output_0_0_0_0.raw",
+            "resnet18_real_tensors/hw_output_0_0_0_0.raw",
             "bin/hw_output.raw",
             std::filesystem::copy_options::overwrite_existing
         );
