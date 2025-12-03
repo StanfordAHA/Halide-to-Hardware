@@ -6707,6 +6707,7 @@ class GlobalDesignHacker:
 
         modules = design["namespaces"]["global"]["modules"]
 
+        pes_balanced = 0
         for mod_name, mod_def in modules.items():
             if "instances" not in mod_def or "connections" not in mod_def:
                 continue  # Skip modules without instances or connections
@@ -6723,7 +6724,6 @@ class GlobalDesignHacker:
             name_to_id = path_balancing_info["name_to_id"]
             pe_to_pond_dict = path_balancing_info["pe_to_pond"]
             num_balance_pes = len(balance_lengths)
-            pes_balanced = 0
 
             connections = mod_def["connections"]
             # connections_iter = copy.deepcopy(connections)
