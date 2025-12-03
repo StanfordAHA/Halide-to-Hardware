@@ -105,54 +105,54 @@ import json
 #     "name_to_id": {
 #     },
 #     "pe_to_pond": {
-#         "p71": True,
-#         "p38": True,
-#         "p2": True,
-#         "p5": True,
-#         "p80": True,
-#         "p86": True,
-#         "p89": True,
-#         "p92": True,
-#         "p8": True,
-#         "p11": True,
-#         "p17": True,
-#         "p14": True,
-#         "p20": True,
-#         "p23": True,
-#         "p29": True,
-#         "p26": True,
-#         "p35": True,
-#         "p44": True,
-#         "p41": True,
-#         "p47": True,
-#         "p50": True,
-#         "p56": True,
-#         "p53": True,
-#         "p59": True,
-#         "p62": True,
-#         "p74": True,
-#         "p65": True,
-#         "p68": True,
-#         "p90": True,
-#         "p9": True,
-#         "p93": True,
-#         "p6": True,
-#         "p15": True,
-#         "p18": True,
-#         "p21": True,
-#         "p24": True,
-#         "p30": True,
-#         "p48": True,
-#         "p54": True,
-#         "p57": True,
-#         "p60": True,
-#         "p66": True,
-#         "p63": True,
-#         "p72": True,
-#         "p75": True,
-#         "p10": True,
-#         "p13": True,
-#         "p19": True,
+#         "p71": (True, ""),
+#         "p38": (True, ""),
+#         "p2": (True, ""),
+#         "p5": (True, ""),
+#         "p80": (True, ""),
+#         "p86": (True, ""),
+#         "p89": (True, ""),
+#         "p92": (True, ""),
+#         "p8": (True, ""),
+#         "p11": (True, ""),
+#         "p17": (True, ""),
+#         "p14": (True, ""),
+#         "p20": (True, ""),
+#         "p23": (True, ""),
+#         "p29": (True, ""),
+#         "p26": (True, ""),
+#         "p35": (True, ""),
+#         "p44": (True, ""),
+#         "p41": (True, ""),
+#         "p47": (True, ""),
+#         "p50": (True, ""),
+#         "p56": (True, ""),
+#         "p53": (True, ""),
+#         "p59": (True, ""),
+#         "p62": (True, ""),
+#         "p74": (True, ""),
+#         "p65": (True, ""),
+#         "p68": (True, ""),
+#         "p90": (True, ""),
+#         "p9": (True, ""),
+#         "p93": (True, ""),
+#         "p6": (True, ""),
+#         "p15": (True, ""),
+#         "p18": (True, ""),
+#         "p21": (True, ""),
+#         "p24": (True, ""),
+#         "p30": (True, ""),
+#         "p48": (True, ""),
+#         "p54": (True, ""),
+#         "p57": (True, ""),
+#         "p60": (True, ""),
+#         "p66": (True, ""),
+#         "p63": (True, ""),
+#         "p72": (True, ""),
+#         "p75": (True, ""),
+#         "p10": (True, ""),
+#         "p13": (True, ""),
+#         "p19": (True, ""),
 #     }
 # }
 
@@ -486,168 +486,168 @@ import json
 #     },
 #     "pe_to_pond": {
 #         # Lane 0
-#         "p15": True,
-#         "p21": True,
-#         "p19": True,
-#         "p11": True,
+#         "p15": (True, ""),
+#         "p21": (True, ""),
+#         "p19": (True, ""),
+#         "p11": (True, ""),
 
 #         # Lane 1
-#         # "p16": False,
-#         "p16": True,
+#         # "p16": (False, "data0"),
+#         "p16": (True, ""),
 
 #         # Lane 2
-#         # "p5": False,
-#         "p5": True,
-#         "p3": True,
-#         "p9": True,
-#         "p6": True,
-#         "p1": True,
-#         "p0": True,
+#         # "p5": (False, "data0"),
+#         "p5": (True, ""),
+#         "p3": (True, ""),
+#         "p9": (True, ""),
+#         "p6": (True, ""),
+#         "p1": (True, ""),
+#         "p0": (True, ""),
 
 #         # Lane 3
-#         "p4": True,
-#         "p10": True,
-#         "p8": True,
-#         "p2": True,
+#         "p4": (True, ""),
+#         "p10": (True, ""),
+#         "p8": (True, ""),
+#         "p2": (True, ""),
 
 #         # Lane 4
-#         "p88": True,
-#         "p95": True,
-#         "p92": True,
-#         "p98": True,
-#         "p96": True,
-#         "p90": True,
+#         "p88": (True, ""),
+#         "p95": (True, ""),
+#         "p92": (True, ""),
+#         "p98": (True, ""),
+#         "p96": (True, ""),
+#         "p90": (True, ""),
 
 #         # Lane 5
-#         "p93": True,
-#         "p91": True,
-#         "p97": True,
-#         "p94": True,
-#         "p89": True,
+#         "p93": (True, ""),
+#         "p91": (True, ""),
+#         "p97": (True, ""),
+#         "p94": (True, ""),
+#         "p89": (True, ""),
 
 #         # Lane 6
-#         "p99": True,
-#         "p102": True,
-#         "p108": True,
-#         "p105": True,
-#         "p100": True,
+#         "p99": (True, ""),
+#         "p102": (True, ""),
+#         "p108": (True, ""),
+#         "p105": (True, ""),
+#         "p100": (True, ""),
 
 #         # Lane 7
-#         "p103": True,
-#         "p109": True,
-#         "p107": True,
-#         "p101": True,
+#         "p103": (True, ""),
+#         "p109": (True, ""),
+#         "p107": (True, ""),
+#         "p101": (True, ""),
 
 #         # Lane 8
-#         "p110": True,
-#         "p114": True,
-#         "p120": True,
-#         "p112": True,
+#         "p110": (True, ""),
+#         "p114": (True, ""),
+#         "p120": (True, ""),
+#         "p112": (True, ""),
 
 #         # Lane 9
-#         "p115": True,
-#         "p113": True,
-#         "p119": True,
-#         "p116": True,
-#         "p111": True,
+#         "p115": (True, ""),
+#         "p113": (True, ""),
+#         "p119": (True, ""),
+#         "p116": (True, ""),
+#         "p111": (True, ""),
 
 #         # Lane 10
-#         "p121": True,
-#         "p126": True,
-#         "p124": True,
-#         "p127": True,
-#         "p122": True,
+#         "p121": (True, ""),
+#         "p126": (True, ""),
+#         "p124": (True, ""),
+#         "p127": (True, ""),
+#         "p122": (True, ""),
 
 #         # Lane 11
-#         # "p128": False,
-#         "p128": True,
-#         "p125": True,
-#         "p131": True,
-#         "p129": True,
-#         "p123": True,
+#         # "p128": (False, "data0"),
+#         "p128": (True, ""),
+#         "p125": (True, ""),
+#         "p131": (True, ""),
+#         "p129": (True, ""),
+#         "p123": (True, ""),
 
 #         # Lane 12
-#         "p139": True,
-#         "p142": True,
-#         "p140": True,
-#         "p134": True,
+#         "p139": (True, ""),
+#         "p142": (True, ""),
+#         "p140": (True, ""),
+#         "p134": (True, ""),
 
 #         # Lane 13
-#         "p135": True,
-#         "p141": True,
-#         "p138": True,
+#         "p135": (True, ""),
+#         "p141": (True, ""),
+#         "p138": (True, ""),
 
 #         # Lane 14
-#         "p143": True,
-#         "p146": True,
-#         "p152": True,
-#         "p149": True,
-#         "p144": True,
+#         "p143": (True, ""),
+#         "p146": (True, ""),
+#         "p152": (True, ""),
+#         "p149": (True, ""),
+#         "p144": (True, ""),
 
 #         # Lane 15
-#         "p147": True,
-#         "p153": True,
-#         "p151": True,
-#         "p145": True,
+#         "p147": (True, ""),
+#         "p153": (True, ""),
+#         "p151": (True, ""),
+#         "p145": (True, ""),
 
 #         # Lane 16
-#         "p154": True,
-#         "p162": True,
+#         "p154": (True, ""),
+#         "p162": (True, ""),
 
 #         # Lane 17
-#         "p155": True,
+#         "p155": (True, ""),
 
 #         # Lane 18
-#         "p165": True,
-#         "p173": True,
+#         "p165": (True, ""),
+#         "p173": (True, ""),
 
 #         # Lane 19
-#         "p174": True,
-#         "p166": True,
+#         "p174": (True, ""),
+#         "p166": (True, ""),
 
 #         # Lane 20
-#         "p33": True,
-#         "p41": True,
+#         "p33": (True, ""),
+#         "p41": (True, ""),
 
 #         # Lane 21
-#         "p36": True,
-#         "p42": True,
+#         "p36": (True, ""),
+#         "p42": (True, ""),
 
 #         # Lane 22
-#         "p30": True,
+#         "p30": (True, ""),
 
 #         # Lane 23
-#         "p31": True,
-#         "p23": True,
+#         "p31": (True, ""),
+#         "p23": (True, ""),
 
 #         # Lane 24
-#         "p44": True,
-#         "p54": True,
+#         "p44": (True, ""),
+#         "p54": (True, ""),
 
 #         # Lane 25
-#         "p53": True,
+#         "p53": (True, ""),
 
 #         # Lane 26
-#         "p55": True,
-#         "p58": True,
+#         "p55": (True, ""),
+#         "p58": (True, ""),
 
 #         # Lane 27
-#         "p59": True,
-#         "p63": True,
+#         "p59": (True, ""),
+#         "p63": (True, ""),
 
 #         # Lane 28
-#         "p66": True,
-#         "p74": True,
+#         "p66": (True, ""),
+#         "p74": (True, ""),
 
 #         # Lane 29
-#         "p72": True,
+#         "p72": (True, ""),
 
 #         # Lane 30
-#         "p77": True,
-#         "p86": True,
+#         "p77": (True, ""),
+#         "p86": (True, ""),
 
 #         # Lane 31
-#         "p81": True,
+#         "p81": (True, ""),
 #     }
 # }
 
@@ -662,7 +662,7 @@ path_balancing_metadata = {
     "name_to_id": {
     },
     "pe_to_pond": {
-        "p3": False,
+        "p3": (False, "data0"),
     }
 }
 
@@ -713,24 +713,24 @@ path_balancing_metadata = {
 
 #     },
 #     "pe_to_pond": {
-#         "p11": True,
-#         "p0": True,
-#         "p88": True,
-#         "p99": True,
-#         "p110": True,
-#         "p121": True,
-#         "p143": True,
-#         "p154": True,
-#         "p165": True,
-#         "p33": True,
-#         "p44": True,
-#         "p55": True,
-#         "p66": True,
-#         "p77": True,
-#         "p111": True,
+#         "p11": (True, ""),
+#         "p0": (True, ""),
+#         "p88": (True, ""),
+#         "p99": (True, ""),
+#         "p110": (True, ""),
+#         "p121": (True, ""),
+#         "p143": (True, ""),
+#         "p154": (True, ""),
+#         "p165": (True, ""),
+#         "p33": (True, ""),
+#         "p44": (True, ""),
+#         "p55": (True, ""),
+#         "p66": (True, ""),
+#         "p77": (True, ""),
+#         "p111": (True, ""),
 
-#         "p16": True,
-#         "p5": True,
+#         "p16": (True, ""),
+#         "p5": (True, ""),
 
 #     }
 # }
@@ -884,74 +884,74 @@ path_balancing_metadata = {
 #     },
 #     "pe_to_pond": {
 #         # Lane 0
-#         "p61": True,
+#         "p61": (True, ""),
 
 #         # Lane 1
-#         "p62": True,
+#         "p62": (True, ""),
 
 #         # Lane 2
-#         "p68": True,
+#         "p68": (True, ""),
 
 #         # Lane 3
-#         "p69": True,
+#         "p69": (True, ""),
 
 #         # Lane 4
-#         "p5": True,
+#         "p5": (True, ""),
 
 #         # Lane 5
-#         "p6": True,
-#         "p4": True,
+#         "p6": (True, ""),
+#         "p4": (True, ""),
 
 #         # Lane 6
-#         "p12": True,
+#         "p12": (True, ""),
 
 #         # Lane 7
-#         "p13": True,
+#         "p13": (True, ""),
 
 #         # Lane 8
-#         "p75": True,
+#         "p75": (True, ""),
 
 #         # Lane 9
-#         "p76": True,
+#         "p76": (True, ""),
 
 #         # Lane 10
-#         "p82": True,
+#         "p82": (True, ""),
 
 #         # Lane 11
-#         "p83": True,
+#         "p83": (True, ""),
 
 #         # Lane 14
-#         "p96": True,
+#         "p96": (True, ""),
 
 #         # Lane 15
-#         "p97": True,
+#         "p97": (True, ""),
 
 #         # Lane 16
-#         "p103": True,
+#         "p103": (True, ""),
 
 #         # Lane 17
-#         "p104": True,
+#         "p104": (True, ""),
 
 #         # Lane 18
-#         "p110": True,
+#         "p110": (True, ""),
 
 #         # Lane 19
-#         "p111": True,
+#         "p111": (True, ""),
 
 #         # Lane 20
-#         "p19": True,
+#         "p19": (True, ""),
 
 #         # Lane 23
-#         "p27": True,
+#         "p27": (True, ""),
 
 #         # Lane 27
-#         "p41": True,
+#         "p41": (True, ""),
 
 #         # Lane 29
-#         "p48": True,
+#         "p48": (True, ""),
 
 #         # Lane 30
-#         "p54": True,
+#         "p54": (True, ""),
 #     }
 # }
 
@@ -977,6 +977,7 @@ with open(packed_filepath, "r") as f:
 model = "resnet18"
 layer = "submodule_15"
 # output_filepath = f"/aha/Halide-to-Hardware/apps/hardware_benchmarks/apps/pointwise_mu_io/path_balancing_configs/{model}-{layer}_path_balancing.json"
-output_filepath = f"/aha/Halide-to-Hardware/apps/hardware_benchmarks/apps/pointwise_mu_io/path_balancing_configs/path_balancing.json"
+# output_filepath = f"/aha/Halide-to-Hardware/apps/hardware_benchmarks/apps/pointwise_mu_io/path_balancing_configs/path_balancing.json"
+output_filepath = "path_balancing.json"
 with open(output_filepath, "w") as f:
     json.dump(path_balancing_metadata, f, indent=4)

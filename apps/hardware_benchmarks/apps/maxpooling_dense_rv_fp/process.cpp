@@ -166,7 +166,7 @@ int main( int argc, char **argv ) {
     using namespace glb_cfg;
     // inputs, outputs, mu_inputs
     const config_spec spec = {
-        {tensor_spec{"input_host_stencil", {"x_coord"}}},
+        {tensor_spec{"input_host_stencil", {"x_coord", "use_multi_bank_mode"}}},
         {tensor_spec{"hw_output", {"x_coord"}}},
         {}
     };

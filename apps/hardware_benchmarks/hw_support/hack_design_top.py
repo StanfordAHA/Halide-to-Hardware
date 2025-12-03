@@ -6707,6 +6707,7 @@ class GlobalDesignHacker:
 
         modules = design["namespaces"]["global"]["modules"]
 
+        pes_balanced = 0
         for mod_name, mod_def in modules.items():
             if "instances" not in mod_def or "connections" not in mod_def:
                 continue  # Skip modules without instances or connections
@@ -6721,70 +6722,81 @@ class GlobalDesignHacker:
 
             balance_lengths = path_balancing_info["balance_lengths"]
             name_to_id = path_balancing_info["name_to_id"]
-            pe_to_pond = path_balancing_info["pe_to_pond"]
+            pe_to_pond_dict = path_balancing_info["pe_to_pond"]
             num_balance_pes = len(balance_lengths)
-            pes_balanced = 0
 
             connections = mod_def["connections"]
-            connections_iter = copy.deepcopy(connections)
-            for edge in connections_iter:
-                left, right = edge[0], edge[1]
-                left_instance_name = left.split(".")[0]
-                left_port = left.split(".")[1] if "." in left else ""
-                right_instance_name = right.split(".")[0]
-                right_port = right.split(".")[1] if "." in right else ""
+            # connections_iter = copy.deepcopy(connections)
 
-                pe_input_port_names = ["data0", "data1", "data2"]
+            for pe in balance_lengths:
+                pe_to_pond_bool = pe_to_pond_dict[pe][0]  # True if PE output to pond, False if pond to PE input
+                pe_to_pond_port = pe_to_pond_dict[pe][1] # PE input port (data0, data1, or data2) if pond to PE input
 
-                left_is_path_balance_pe_output = left_port == "O0" and left_instance_name in name_to_id and (pe_to_pond[name_to_id[left_instance_name]] == True)
-                right_is_path_balance_pe_output = right_port == "O0" and right_instance_name in name_to_id and (pe_to_pond[name_to_id[right_instance_name]] == True)
+                found_matching_edge = False
+                for edge in connections:
+                    left, right = edge[0], edge[1]
+                    left_instance_name = left.split(".")[0]
+                    left_port = left.split(".")[1] if "." in left else ""
+                    right_instance_name = right.split(".")[0]
+                    right_port = right.split(".")[1] if "." in right else ""
 
-                left_is_path_balance_pe_input = left_port in pe_input_port_names and left_instance_name in name_to_id and (pe_to_pond[name_to_id[left_instance_name]] == False)
-                right_is_path_balance_pe_input = right_port in pe_input_port_names and right_instance_name in name_to_id and (pe_to_pond[name_to_id[right_instance_name]] == False)
+                    # Search for PE output
+                    if pe_to_pond_bool:
+                        left_is_path_balance_pe_output = left_port == "O0" and left_instance_name in name_to_id and (name_to_id[left_instance_name] == pe)
+                        right_is_path_balance_pe_output = right_port == "O0" and right_instance_name in name_to_id and (name_to_id[right_instance_name] == pe)
 
-                if left_is_path_balance_pe_output or right_is_path_balance_pe_output:
-                    pes_balanced += 1
-                    if left_is_path_balance_pe_output:
-                        pond_name = f"{name_to_id[left_instance_name]}_path_balance_pond"
+                        if left_is_path_balance_pe_output or right_is_path_balance_pe_output:
+                            found_matching_edge = True
+                            pes_balanced += 1
+                            if left_is_path_balance_pe_output:
+                                pond_name = f"{pe}_path_balance_pond"
+                            else:
+                                pond_name = f"{pe}_path_balance_pond"
+                            pond_instance = copy.deepcopy(self.pond_tpl)
+                            pond_instance["genargs"]["ID"][1] = pond_name
+                            instances[pond_name] = pond_instance
+
+                            # Found the PE output, insert pond here
+                            connections.remove(edge)
+                            if left_is_path_balance_pe_output:
+                                connections.append([left, f"{pond_name}.data_in_pond_0"])
+                                connections.append([f"{pond_name}.data_out_pond_1", right])
+                            else:
+                                connections.append([right, f"{pond_name}.data_in_pond_0"])
+                                connections.append([f"{pond_name}.data_out_pond_1", left])
+
+                            print(f"\033[93mINFO: Inserted pond '{pond_name}' between '{left}' and '{right}' for path balancing. Connection is PE -> Pond. \033[0m")
+
+                    # Search for one of the PE inputs
                     else:
-                        pond_name = f"{name_to_id[right_instance_name]}_path_balance_pond"
-                    pond_instance = copy.deepcopy(self.pond_tpl)
-                    pond_instance["genargs"]["ID"][1] = pond_name
-                    instances[pond_name] = pond_instance
+                        left_is_path_balance_pe_input = (left_port == pe_to_pond_port) and left_instance_name in name_to_id and (name_to_id[left_instance_name] == pe)
+                        right_is_path_balance_pe_input = (right_port == pe_to_pond_port) and right_instance_name in name_to_id and (name_to_id[right_instance_name] == pe)
 
-                    # Found the PE output, insert pond here
-                    connections.remove(edge)
-                    if left_is_path_balance_pe_output:
-                        connections.append([left, f"{pond_name}.data_in_pond_0"])
-                        connections.append([f"{pond_name}.data_out_pond_1", right])
-                    else:
-                        connections.append([right, f"{pond_name}.data_in_pond_0"])
-                        connections.append([f"{pond_name}.data_out_pond_1", left])
+                        if left_is_path_balance_pe_input or right_is_path_balance_pe_input:
+                            found_matching_edge = True
+                            pes_balanced += 1
+                            if left_is_path_balance_pe_input:
+                                pond_name = f"{pe}_path_balance_pond"
+                            else:
+                                pond_name = f"{pe}_path_balance_pond"
+                            pond_instance = copy.deepcopy(self.pond_tpl)
+                            pond_instance["genargs"]["ID"][1] = pond_name
+                            instances[pond_name] = pond_instance
 
-                    print(f"\033[93mINFO: Inserted pond '{pond_name}' between '{left}' and '{right}' for path balancing. Connection is PE -> Pond. \033[0m")
+                            # Found the PE input, insert pond here (pond drives PE input)
+                            connections.remove(edge)
+                            if left_is_path_balance_pe_input:
+                                connections.append([f"{pond_name}.data_out_pond_0", left])
+                                connections.append([right, f"{pond_name}.data_in_pond_0"])
+                            else:
+                                connections.append([f"{pond_name}.data_out_pond_0", right])
+                                connections.append([left, f"{pond_name}.data_in_pond_0"])
+                            print(f"\033[93mINFO: Inserted pond '{pond_name}' between '{left}' and '{right}' for path balancing. Connection is Pond -> PE. \033[0m")
 
-                elif left_is_path_balance_pe_input or right_is_path_balance_pe_input:
-                    pes_balanced += 1
-                    if left_is_path_balance_pe_input:
-                        pond_name = f"{name_to_id[left_instance_name]}_path_balance_pond"
-                    else:
-                        pond_name = f"{name_to_id[right_instance_name]}_path_balance_pond"
-                    pond_instance = copy.deepcopy(self.pond_tpl)
-                    pond_instance["genargs"]["ID"][1] = pond_name
-                    instances[pond_name] = pond_instance
+                    if found_matching_edge:
+                        break
 
-                    # Found the PE input, insert pond here (pond drives PE input)
-                    connections.remove(edge)
-                    if left_is_path_balance_pe_input:
-                        connections.append([f"{pond_name}.data_out_pond_0", left])
-                        connections.append([right, f"{pond_name}.data_in_pond_0"])
-                    else:
-                        connections.append([f"{pond_name}.data_out_pond_0", right])
-                        connections.append([left, f"{pond_name}.data_in_pond_0"])
-                    print(f"\033[93mINFO: Inserted pond '{pond_name}' between '{left}' and '{right}' for path balancing. Connection is Pond -> PE. \033[0m")
-
-                if pes_balanced >= num_balance_pes:
-                    break
+        assert pes_balanced == num_balance_pes, f"Expected to balance {num_balance_pes} PEs, but only balanced {pes_balanced} PEs."
 
         # Overwrite the JSON
         with open(json_path, "w") as f:
