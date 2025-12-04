@@ -9,6 +9,6 @@
         "op_hcompute_mult_stencil_3$inner_compute$mul_i3108_i1608": "p3"
     },
     "pe_to_pond": {
-        "p3": false
+        "p3": [false, "data0"]
     }
 }
