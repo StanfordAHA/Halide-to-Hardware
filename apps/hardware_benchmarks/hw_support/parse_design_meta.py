@@ -477,6 +477,10 @@ def hack_addr_gen_for_mu_tiling(meta, mu_tiling_file):
     if zircon_input_act_padding_workaround:
         assert "ZIRCON_INPUT_ACT_PADDING_WORKAROUND_SIZE" in os.environ, "ZIRCON_INPUT_ACT_PADDING_WORKAROUND_SIZE environment variable must be set for ZIRCON_INPUT_ACT_PADDING_WORKAROUND"
         zircon_input_act_padding_workaround_size = int(os.environ.get("ZIRCON_INPUT_ACT_PADDING_WORKAROUND_SIZE", 0))
+
+
+    mha_permute = "MHA_PERMUTE" in os.environ and os.environ["MHA_PERMUTE"] == "1"
+    num_attn_heads = int(os.environ.get("NUM_ATTENTION_HEADS", 12))
     # K dimension host tiling: used in resnet18 conv5 in Zircon
     # k_dim_host_tiling = "K_DIM_HOST_TILING" in os.environ and os.environ["K_DIM_HOST_TILING"] == "1"
     # if k_dim_host_tiling:
@@ -492,7 +496,7 @@ def hack_addr_gen_for_mu_tiling(meta, mu_tiling_file):
         apply_zircon_fx_fy_stride_workaround = zircon_fx_fy_stride_workaround and io_type == "outputs"
         apply_zircon_input_act_padding_workaround = zircon_input_act_padding_workaround and io_type == "outputs"
         # Get the GLB DMA config
-        dimensionality, strides, extents = get_glb_dma_config(mu_tiling_file, zircon_fx_fy_stride_workaround=apply_zircon_fx_fy_stride_workaround, zircon_input_act_padding_workaround=apply_zircon_input_act_padding_workaround)
+        dimensionality, strides, extents = get_glb_dma_config(mu_tiling_file, zircon_fx_fy_stride_workaround=apply_zircon_fx_fy_stride_workaround, zircon_input_act_padding_workaround=apply_zircon_input_act_padding_workaround, mha_permute=mha_permute, num_attn_heads=num_attn_heads)
         for io in meta["IOs"][io_type]:
             if "io_tiles" in io:
                 for tile in io["io_tiles"]:
