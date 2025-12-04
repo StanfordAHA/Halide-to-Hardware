@@ -31,6 +31,8 @@ public:
 
     GeneratorParam<int> unroll{"unroll", 14};    // default: 14
 
+    // dummy_max_nop determines how many nop PEs to insert at the end of each lane
+    GeneratorParam<int> dummy_max_nop{"dummy_max_nop", 0};    // default: 0
 
     void generate() {
 
