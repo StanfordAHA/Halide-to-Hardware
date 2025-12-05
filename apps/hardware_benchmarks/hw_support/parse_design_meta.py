@@ -495,9 +495,25 @@ def hack_addr_gen_for_mu_tiling(meta, mu_tiling_file):
     for io_type in ["inputs", "outputs"]:
         apply_zircon_fx_fy_stride_workaround = zircon_fx_fy_stride_workaround and io_type == "outputs"
         apply_zircon_input_act_padding_workaround = zircon_input_act_padding_workaround and io_type == "outputs"
-        # Get the GLB DMA config
-        dimensionality, strides, extents = get_glb_dma_config(mu_tiling_file, zircon_fx_fy_stride_workaround=apply_zircon_fx_fy_stride_workaround, zircon_input_act_padding_workaround=apply_zircon_input_act_padding_workaround, mha_permute=mha_permute, num_attn_heads=num_attn_heads)
+
         for io in meta["IOs"][io_type]:
+            io_name = io["name"]
+            io_name_caps = io_name.upper()
+
+            io_broadcast_dims = []
+            if "BROADCAST_TENSORS" in os.environ:
+                broadcast_tensors = os.environ["BROADCAST_TENSORS"].split(",")
+                if io_name_caps in broadcast_tensors:
+                    io_broadcast_dims_env_str = f"{io_name_caps}_BROADCAST_DIMS"
+                    assert io_broadcast_dims_env_str in os.environ, f"{io_broadcast_dims_env_str} environment variable must be set because {io_name_caps} is in BROADCAST_TENSORS"
+                    io_broadcast_dims = os.environ[io_broadcast_dims_env_str].split(",")
+
+
+                    print(f"\033[94m INFO: Tensor {io_name_caps} is being broadcast over dims: {io_broadcast_dims}\033[0m")
+
+            # Get the GLB DMA config
+            dimensionality, strides, extents = get_glb_dma_config(mu_tiling_file, zircon_fx_fy_stride_workaround=apply_zircon_fx_fy_stride_workaround,
+                                                                  zircon_input_act_padding_workaround=apply_zircon_input_act_padding_workaround, mha_permute=mha_permute, num_attn_heads=num_attn_heads, broadcast_dims=io_broadcast_dims)
             if "io_tiles" in io:
                 for tile in io["io_tiles"]:
                     addr = tile.get("addr", {})
@@ -769,3 +785,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+    breakpoint()
