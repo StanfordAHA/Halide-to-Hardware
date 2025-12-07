@@ -125,6 +125,58 @@ void load_raw_to_halide_buffer(const std::string& filename, Halide::Runtime::Buf
     inFile.close();
 }
 
+void load_leraw_to_halide_buffer(const std::string& filename, Halide::Runtime::Buffer<uint16_t>& buffer) {
+    std::ifstream inFile(filename, std::ios::binary);
+    if (!inFile) {
+        std::cerr << "Failed to open file for reading: " << filename << std::endl;
+        return;
+    }
+
+    // Get the extents of each dimension in the buffer.
+    std::vector<int> extents(buffer.dimensions());
+    for (int i = 0; i < buffer.dimensions(); i++) {
+        extents[i] = buffer.dim(i).extent();
+    }
+
+    // Initialize indices to zero for all dimensions.
+    std::vector<int> indices(buffer.dimensions(), 0);
+
+    // Recursively fill the buffer in column-major order.
+    std::function<void(int)> fillBuffer = [&](int dim) {
+        if (dim == -1) { // All dimensions are set.
+            uint16_t value;
+            inFile.read(reinterpret_cast<char*>(&value), sizeof(value));
+            if (!inFile) {
+                std::cerr << "Error reading data for indices ";
+                for (int i = 0; i < indices.size(); ++i) {
+                    std::cerr << indices[i] << (i < indices.size() - 1 ? ", " : "");
+                }
+                std::cerr << std::endl;
+                throw std::runtime_error("Failed to read data from file");
+            }
+            // Leraw files are stored in little-endian byte order (native format).
+            buffer(indices.data()) = value;
+        } else {
+            // Recurse for the current dimension.
+            for (int i = 0; i < extents[dim]; ++i) {
+                indices[dim] = i;
+                fillBuffer(dim - 1);
+            }
+            indices[dim] = 0;
+        }
+    };
+
+    try {
+        fillBuffer(buffer.dimensions() - 1);
+    } catch (const std::exception& e) {
+        std::cerr << "An exception occurred: " << e.what() << std::endl;
+        inFile.close();
+        return;
+    }
+
+    inFile.close();
+}
+
 std::vector<int> parse_glb_bank_config_num_list(const std::string& env_var_name) {
     std::vector<int> values;
     const char* env_var_value = std::getenv(env_var_name.c_str());

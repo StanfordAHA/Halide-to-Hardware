@@ -26,6 +26,9 @@ void save_halide_buffer_to_raw(const Halide::Runtime::Buffer<uint16_t>& buffer, 
 // Load raw data from a big-endian file into a Halide buffer
 void load_raw_to_halide_buffer(const std::string& filename, Halide::Runtime::Buffer<uint16_t>& buffer);
 
+// Load raw data from a little-endian file into a Halide buffer
+void load_leraw_to_halide_buffer(const std::string& filename, Halide::Runtime::Buffer<uint16_t>& buffer);
+
 // Reference softmax implementation - computes stable softmax for each row
 // Input: input buffer (width x height) where each row is a vector to softmax
 // Output: output buffer (width x height) with softmax results
