@@ -486,7 +486,6 @@ def hack_config_for_mha_concat(meta):
     loop_bounds = [head_dim // MU_WORD_NUM_BYTES, seq_len, num_attn_heads]  # D, N, H
     loop_order = ['D', 'N', 'H']
 
-    breakpoint()
 
     # Update the address generator config in the design meta
     # TODO: This really shouldn't be applied to ALL outputs. In future, need some sort of metadata to specify which outputs are influenced by the tiling
