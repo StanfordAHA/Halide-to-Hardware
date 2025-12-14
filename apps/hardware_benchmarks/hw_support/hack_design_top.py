@@ -36,6 +36,7 @@ APPS_NEEDING_HACKS = [
     "maxpooling_dense_rv_mem_buf_fp",
     "fully_connected_layer_fp",
     "tanh_fp",
+    "pe_mem_flush_test",
 ]
 
 
@@ -1135,6 +1136,67 @@ class SelectedDesignHacker:
                 and inst_config["modref"] == "global.IO"
             ):
                 inst_config["metadata"]["glb2out_0"]["read_data_stride"] = [0]
+
+        # Overwrite the JSON
+        with open(json_path, "w") as f:
+            f.write(pretty_format_json(design))
+
+    def hack_for_pe_mem_flush_test_rv(self, json_path, bin_path):
+        with open(json_path, "r") as f:
+            design = json.load(f)
+
+        top_module = "pe_mem_flush_test"
+
+        # Locate top module
+        global_modules = design["namespaces"]["global"]["modules"]
+        if top_module not in global_modules:
+            raise ValueError(f"ERROR: Module '{top_module}' not found in design.")
+
+        pe_mem_flush_test = global_modules[top_module]
+        instances = pe_mem_flush_test["instances"]
+        connections = pe_mem_flush_test["connections"]
+
+        def add_conn_once(src, dst):
+            pair = [src, dst]
+            if pair not in connections:
+                connections.append(pair)
+
+        def remove_conn(src, dst):
+            pair1 = [src, dst]
+            pair2 = [dst, src]
+            if pair1 in connections:
+                connections.remove(pair1)
+            elif pair2 in connections:
+                connections.remove(pair2)
+
+        # Find lanes: PE.O0 -> output IO .in
+        lanes = []
+        for conn in connections:
+            a, b = conn
+            if a.endswith(".O0") and b.endswith(".in"):
+                io_inst = b.split(".")[0]
+                if "hw_output_stencil" in io_inst:
+                    lanes.append((a.split(".")[0], io_inst, b))
+            elif b.endswith(".O0") and a.endswith(".in"):
+                io_inst = a.split(".")[0]
+                if "hw_output_stencil" in io_inst:
+                    lanes.append((b.split(".")[0], io_inst, a))
+
+        if not lanes:
+            raise ValueError(f"ERROR: No PE->IO lanes found in '{top_module}'.")
+
+        for idx, (pe_name, io_name, io_in_port) in enumerate(lanes):
+            mem_name = f"{top_module}_input_buffer_mem_lane_{idx}"
+            if mem_name not in instances:
+                instances[mem_name] = copy.deepcopy(self.mem_tpl)
+                instances[mem_name]["genargs"]["ID"][1] = mem_name
+
+            # Remove direct PE -> IO connection if present
+            remove_conn(f"{pe_name}.O0", io_in_port)
+
+            # Insert MEM: PE -> MEM -> IO
+            add_conn_once(f"{pe_name}.O0", f"{mem_name}.data_in_0")
+            add_conn_once(f"{mem_name}.data_out_0", io_in_port)
 
         # Overwrite the JSON
         with open(json_path, "w") as f:
