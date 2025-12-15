@@ -122,7 +122,7 @@ int main(int argc, char **argv) {
         }
     }
 
-    // Add reduction of lower half lanes output
+    // Pass through of lower half lanes output
     // The second half of each mu_i group (mu_i/2, mu_i/2+1, ..., mu_i-1, mu_i+mu_i/2, ...)
     auto pass_through_output = Buffer<uint16_t>(int(vec_width / 2), vec_height);
     for (int y = 0; y < pass_through_output.dim(1).extent(); y++) {

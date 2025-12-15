@@ -17,6 +17,7 @@ APPS_NEEDING_HACKS = [
     "gelu_pass1_mu_input_fp",
     "gelu_pass2_fp",
     "add_gelu_pass1_mu_input_fp",
+    "add_gelu_pass2_fp",
     "silu_pass2_fp",
     "swiglu_pass2_fp",
     "vector_reduction_fp",
@@ -4313,6 +4314,141 @@ class SelectedDesignHacker:
             add_conn_once(input_io_out, f"{input_buffer_mem_name}.data_in_0")
             add_conn_once(f"{input_buffer_mem_name}.data_out_0", f"{pe_data0_name}.data0")
             add_conn_once(f"{input_buffer_mem_name}.data_out_1", f"{pe_data1_name}.data1")
+
+            # Connect clock enable
+            add_conn_once(f"{input_buffer_mem_name}.clk_en", f"{shared_clk_const_name}.out")
+
+        # Overwrite the JSON
+        with open(json_path, "w") as f:
+            f.write(pretty_format_json(design))
+
+    def hack_for_add_gelu_pass2_fp_rv(self, json_path, bin_path):
+
+        with open(json_path, "r") as f:
+            design = json.load(f)
+
+        top_module = "add_gelu_pass2_fp"
+        global_modules = design["namespaces"]["global"]["modules"]
+        if top_module not in global_modules:
+            print(f"WARNING: Module '{top_module}' not found in design. No hack applied.")
+            return
+        add_gelu_pass2_fp = global_modules[top_module]
+
+        instances = add_gelu_pass2_fp["instances"]
+        connections = add_gelu_pass2_fp["connections"]
+
+        # Find all input IO instances matching the pattern
+        input_io_instances = []
+        for inst_name, inst_config in instances.items():
+            if (inst_name.startswith("io16in_input_host_stencil") and
+                inst_config.get("modref") == "global.IO" and
+                "_clkwrk_" in inst_name and
+                "_op_hcompute_input_glb_stencil" in inst_name):
+                input_io_instances.append(inst_name)
+
+        # Sort IO instances by clkwrk index for consistent ordering
+        def extract_clkwrk_idx(name):
+            match = re.search(r"_clkwrk_(\d+)_", name)
+            return int(match.group(1)) if match else 0
+        input_io_instances.sort(key=extract_clkwrk_idx)
+
+        # Helper function to add connection only if it doesn't exist
+        def add_conn_once(src, dst):
+            pair = [src, dst]
+            if pair not in connections:
+                connections.append(pair)
+
+        # Helper function to remove connection
+        def remove_conn(src, dst):
+            pair1 = [src, dst]
+            pair2 = [dst, src]
+            if pair1 in connections:
+                connections.remove(pair1)
+            elif pair2 in connections:
+                connections.remove(pair2)
+
+        # Find or create shared clock constant
+        shared_clk_const_name = f"{top_module}_clk_en_const"
+        if shared_clk_const_name not in instances:
+            instances[shared_clk_const_name] = copy.deepcopy(self.const_clk_tpl)
+
+        # For each input IO, find fp_add PE, then insert MEM buffer between fp_add and broadcasted fp_mul PEs
+        for input_io_name in input_io_instances:
+            # Find the fp_add PE connected to this input IO
+            fp_add_pe_name = None
+            fp_add_conn = None
+            input_io_out = f"{input_io_name}.out"
+
+            # Find fp_add PE with .data0 connected to input IO
+            for conn in connections:
+                a, b = conn[0], conn[1]
+                if ((a.endswith(".data0") and b == input_io_out) or
+                    (b.endswith(".data0") and a == input_io_out)):
+                    pe_port = a if a.endswith(".data0") else b
+                    pe_inst = pe_port.split(".")[0]
+                    if ("op_hcompute_output_cgra_stencil" in pe_inst and
+                        "float_DW_fp_add" in pe_inst):
+                        fp_add_pe_name = pe_inst
+                        fp_add_conn = conn
+                        break
+
+            if fp_add_pe_name is None:
+                raise ValueError(f"[ERROR]: Could not find fp_add PE with .data0 connected to {input_io_name}.")
+
+            # Find the two fp_mul PEs connected to fp_add PE's output
+            fp_mul_pe_data0_name = None
+            fp_mul_pe_data1_name = None
+            fp_mul_data0_conn = None
+            fp_mul_data1_conn = None
+            fp_add_out = f"{fp_add_pe_name}.O0"
+
+            # Find fp_mul PE with .data0 connected to fp_add.O0
+            for conn in connections:
+                a, b = conn[0], conn[1]
+                if ((a.endswith(".data0") and b == fp_add_out) or
+                    (b.endswith(".data0") and a == fp_add_out)):
+                    pe_port = a if a.endswith(".data0") else b
+                    pe_inst = pe_port.split(".")[0]
+                    if ("op_hcompute_output_cgra_stencil" in pe_inst and
+                        "float_DW_fp_mul" in pe_inst):
+                        fp_mul_pe_data0_name = pe_inst
+                        fp_mul_data0_conn = conn
+                        break
+
+            # Find fp_mul PE with .data1 connected to fp_add.O0
+            for conn in connections:
+                a, b = conn[0], conn[1]
+                if ((a.endswith(".data1") and b == fp_add_out) or
+                    (b.endswith(".data1") and a == fp_add_out)):
+                    pe_port = a if a.endswith(".data1") else b
+                    pe_inst = pe_port.split(".")[0]
+                    if ("op_hcompute_output_cgra_stencil" in pe_inst and
+                        "float_DW_fp_mul" in pe_inst):
+                        fp_mul_pe_data1_name = pe_inst
+                        fp_mul_data1_conn = conn
+                        break
+
+            if fp_mul_pe_data0_name is None:
+                raise ValueError(f"[ERROR]: Could not find fp_mul PE with .data0 connected to {fp_add_pe_name}.O0.")
+            if fp_mul_pe_data1_name is None:
+                raise ValueError(f"[ERROR]: Could not find fp_mul PE with .data1 connected to {fp_add_pe_name}.O0.")
+
+            # Create input buffer MEM instance
+            # Extract clkwrk index for naming
+            clkwrk_idx = extract_clkwrk_idx(input_io_name)
+            input_buffer_mem_name = f"{top_module}_input_buffer_mem_clkwrk_{clkwrk_idx}"
+            if input_buffer_mem_name not in instances:
+                instances[input_buffer_mem_name] = copy.deepcopy(self.mem_tpl)
+                instances[input_buffer_mem_name]["genargs"]["ID"][1] = input_buffer_mem_name
+
+            # Break existing connections from fp_add.O0 to both fp_mul PEs
+            remove_conn(fp_mul_data0_conn[0], fp_mul_data0_conn[1])
+            remove_conn(fp_mul_data1_conn[0], fp_mul_data1_conn[1])
+
+            # Wire up MEM: fp_add.O0 -> MEM -> both fp_mul PEs
+            add_conn_once(fp_add_out, f"{input_buffer_mem_name}.data_in_0")
+            add_conn_once(f"{input_buffer_mem_name}.data_out_0", f"{fp_mul_pe_data0_name}.data0")
+            add_conn_once(f"{input_buffer_mem_name}.data_out_1", f"{fp_mul_pe_data1_name}.data1")
 
             # Connect clock enable
             add_conn_once(f"{input_buffer_mem_name}.clk_en", f"{shared_clk_const_name}.out")
