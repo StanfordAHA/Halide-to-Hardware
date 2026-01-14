@@ -449,11 +449,13 @@ def zircon_input_act_padding_workaround_hack_cycle_stride_k_y_x_tiling(extents, 
     # Y0: Skip "padding size" number of columns. + 1 b/c cycle stride 1 = no skip
     cycle_strides[1] = zircon_input_act_padding_workaround_size + 1
     # K2/K1: Whenever k is incremented, we want to skip the remaining columns in the current row, then all padding rows + 1 b/c cycle stride 1 = no skip
-    cycle_strides[2] = zircon_input_act_padding_workaround_size + (zircon_input_act_padding_workaround_size * (extents[0] + zircon_input_act_padding_workaround_size)) + 1
+    # cycle_strides[2] = zircon_input_act_padding_workaround_size + (zircon_input_act_padding_workaround_size * (extents[0] + zircon_input_act_padding_workaround_size)) + 1
+    cycle_strides[2] = 2 # UPDATE: 01/13/2026: We now pass the last row through to avoid garbage pixels being left in CGRA's FIFOS
 
     if len(extents) == 4:
         # K1/K1: Whenever k is incremented, we want to skip the remaining columns in the current row, then all padding rows + 1 b/c cycle stride 1 = no skip
-        cycle_strides[3] = zircon_input_act_padding_workaround_size + (zircon_input_act_padding_workaround_size * (extents[0] + zircon_input_act_padding_workaround_size)) + 1
+        # cycle_strides[3] = zircon_input_act_padding_workaround_size + (zircon_input_act_padding_workaround_size * (extents[0] + zircon_input_act_padding_workaround_size)) + 1
+        cycle_strides[3] = 2 # UPDATE: 01/13/2026: We now pass the last row through to avoid garbage pixels being left in CGRA's FIFOS
 
     return cycle_strides
 
