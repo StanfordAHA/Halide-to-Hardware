@@ -132,47 +132,173 @@
         "dummy_max_nop_in_c19_pe0": "p9"
     },
     "pe_to_pond": {
-        "p0": true,
-        "p52": true,
-        "p3": true,
-        "p61": true,
-        "p62": true,
-        "p63": true,
-        "p6": true,
-        "p70": true,
-        "p71": true,
-        "p72": true,
-        "p9": true,
-        "p79": true,
-        "p12": true,
-        "p88": true,
-        "p89": true,
-        "p15": true,
-        "p18": true,
-        "p21": true,
-        "p115": true,
-        "p116": true,
-        "p117": true,
-        "p24": true,
-        "p124": true,
-        "p125": true,
-        "p126": true,
-        "p27": true,
-        "p30": true,
-        "p142": true,
-        "p143": true,
-        "p144": true,
-        "p33": true,
-        "p151": true,
-        "p36": true,
-        "p160": true,
-        "p161": true,
-        "p39": true,
-        "p169": true,
-        "p170": true,
-        "p171": true,
-        "p42": true,
-        "p178": true,
-        "p45": true
+        "p0": [
+            true,
+            ""
+        ],
+        "p52": [
+            true,
+            ""
+        ],
+        "p3": [
+            true,
+            ""
+        ],
+        "p61": [
+            true,
+            ""
+        ],
+        "p62": [
+            true,
+            ""
+        ],
+        "p63": [
+            true,
+            ""
+        ],
+        "p6": [
+            true,
+            ""
+        ],
+        "p70": [
+            true,
+            ""
+        ],
+        "p71": [
+            true,
+            ""
+        ],
+        "p72": [
+            true,
+            ""
+        ],
+        "p9": [
+            true,
+            ""
+        ],
+        "p79": [
+            true,
+            ""
+        ],
+        "p12": [
+            true,
+            ""
+        ],
+        "p88": [
+            true,
+            ""
+        ],
+        "p89": [
+            true,
+            ""
+        ],
+        "p15": [
+            true,
+            ""
+        ],
+        "p18": [
+            true,
+            ""
+        ],
+        "p21": [
+            true,
+            ""
+        ],
+        "p115": [
+            true,
+            ""
+        ],
+        "p116": [
+            true,
+            ""
+        ],
+        "p117": [
+            true,
+            ""
+        ],
+        "p24": [
+            true,
+            ""
+        ],
+        "p124": [
+            true,
+            ""
+        ],
+        "p125": [
+            true,
+            ""
+        ],
+        "p126": [
+            true,
+            ""
+        ],
+        "p27": [
+            true,
+            ""
+        ],
+        "p30": [
+            true,
+            ""
+        ],
+        "p142": [
+            true,
+            ""
+        ],
+        "p143": [
+            true,
+            ""
+        ],
+        "p144": [
+            true,
+            ""
+        ],
+        "p33": [
+            true,
+            ""
+        ],
+        "p151": [
+            true,
+            ""
+        ],
+        "p36": [
+            true,
+            ""
+        ],
+        "p160": [
+            true,
+            ""
+        ],
+        "p161": [
+            true,
+            ""
+        ],
+        "p39": [
+            true,
+            ""
+        ],
+        "p169": [
+            true,
+            ""
+        ],
+        "p170": [
+            true,
+            ""
+        ],
+        "p171": [
+            true,
+            ""
+        ],
+        "p42": [
+            true,
+            ""
+        ],
+        "p178": [
+            true,
+            ""
+        ],
+        "p45": [
+            true,
+            ""
+        ]
     }
 }

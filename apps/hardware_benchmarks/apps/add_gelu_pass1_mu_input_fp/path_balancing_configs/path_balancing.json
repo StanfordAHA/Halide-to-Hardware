@@ -117,42 +117,153 @@
         "op_hcompute_output_add_gelu_upper_cgra_stencil_15$inner_compute$float_DW_fp_add_i3632_i792_dummy_max_nop_pe_7": "p95"
     },
     "pe_to_pond": {
-        "p2": true,
-        "p4": true,
-        "p9": true,
-        "p12": true,
-        "p14": true,
-        "p18": true,
-        "p24": true,
-        "p29": true,
-        "p35": true,
-        "p40": true,
-        "p46": true,
-        "p51": true,
-        "p57": true,
-        "p62": true,
-        "p68": true,
-        "p73": true,
-        "p79": true,
-        "p84": true,
-        "p90": true,
-        "p95": true,
-        "p101": true,
-        "p106": true,
-        "p112": true,
-        "p117": true,
-        "p123": true,
-        "p128": true,
-        "p134": true,
-        "p139": true,
-        "p145": true,
-        "p150": true,
-        "p156": true,
-        "p161": true,
-        "p167": true,
-        "p172": true,
-        "p178": true,
-        "p183": true,
-        "p189": true
+        "p2": [
+            true,
+            ""
+        ],
+        "p4": [
+            true,
+            ""
+        ],
+        "p9": [
+            true,
+            ""
+        ],
+        "p12": [
+            true,
+            ""
+        ],
+        "p14": [
+            true,
+            ""
+        ],
+        "p18": [
+            true,
+            ""
+        ],
+        "p24": [
+            true,
+            ""
+        ],
+        "p29": [
+            true,
+            ""
+        ],
+        "p35": [
+            true,
+            ""
+        ],
+        "p40": [
+            true,
+            ""
+        ],
+        "p46": [
+            true,
+            ""
+        ],
+        "p51": [
+            true,
+            ""
+        ],
+        "p57": [
+            true,
+            ""
+        ],
+        "p62": [
+            true,
+            ""
+        ],
+        "p68": [
+            true,
+            ""
+        ],
+        "p73": [
+            true,
+            ""
+        ],
+        "p79": [
+            true,
+            ""
+        ],
+        "p84": [
+            true,
+            ""
+        ],
+        "p90": [
+            true,
+            ""
+        ],
+        "p95": [
+            true,
+            ""
+        ],
+        "p101": [
+            true,
+            ""
+        ],
+        "p106": [
+            true,
+            ""
+        ],
+        "p112": [
+            true,
+            ""
+        ],
+        "p117": [
+            true,
+            ""
+        ],
+        "p123": [
+            true,
+            ""
+        ],
+        "p128": [
+            true,
+            ""
+        ],
+        "p134": [
+            true,
+            ""
+        ],
+        "p139": [
+            true,
+            ""
+        ],
+        "p145": [
+            true,
+            ""
+        ],
+        "p150": [
+            true,
+            ""
+        ],
+        "p156": [
+            true,
+            ""
+        ],
+        "p161": [
+            true,
+            ""
+        ],
+        "p167": [
+            true,
+            ""
+        ],
+        "p172": [
+            true,
+            ""
+        ],
+        "p178": [
+            true,
+            ""
+        ],
+        "p183": [
+            true,
+            ""
+        ],
+        "p189": [
+            true,
+            ""
+        ]
     }
 }
