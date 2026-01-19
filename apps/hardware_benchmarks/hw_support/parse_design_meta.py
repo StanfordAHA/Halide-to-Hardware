@@ -613,6 +613,13 @@ def hack_addr_gen_for_k_dim_host_tiling(meta):
     CGRA_WORD_NUM_BYTES = 2 # 2 bytes per word in CGRA
     NUM_BYTES_PER_IO_TILE = 4 # 4 bytes per IO tile (4-wide word)
 
+    # This means the OUTPUT tensor is too large to fit in GLB. So we tile along K dim to fit it in GLB.
+    # In regular k_dim_host_tiling, it is assumed that the OUTPUT tesnor can fit in the GLB. The tiling is due to input tensors being too large to fit in GLB.
+    output_tensor_k_dim_tiling = "OUTPUT_TENSOR_K_DIM_TILING" in os.environ and os.environ["OUTPUT_TENSOR_K_DIM_TILING"] == "1"
+
+    if output_tensor_k_dim_tiling:
+        return meta # No need to hack the address generator output. Simply return the meta as is.
+
     assert "HALIDE_GEN_ARGS" in os.environ, "HALIDE_GEN_ARGS environment variable must be set for K_DIM_HOST_TILING"
     HALIDE_GEN_ARGS = os.environ["HALIDE_GEN_ARGS"]
     n_oc_match = re.search(r'n_oc=(\d+)', HALIDE_GEN_ARGS)
