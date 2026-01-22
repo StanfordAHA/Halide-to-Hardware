@@ -14,6 +14,7 @@ APPS_NEEDING_HACKS = [
     "scalar_avg_fp",
     "layer_norm_pass1_fp",
     "layer_norm_pass2_fp",
+    "layer_norm_pass3_fp",
     "gelu_pass1_mu_input_fp",
     "gelu_pass2_fp",
     "silu_pass2_fp",
@@ -3326,6 +3327,40 @@ class SelectedDesignHacker:
         # Write modified design back
         with open(json_path, "w") as f:
             json.dump(design, f, indent=2)
+
+    def hack_for_layer_norm_pass3_fp_rv(self, json_path, bin_path):
+        with open(json_path, "r") as f:
+            design = json.load(f)
+
+        top_module = "layer_norm_pass3_fp"
+        global_modules = design["namespaces"]["global"]["modules"]
+        if top_module not in global_modules:
+            print(f"WARNING: Module '{top_module}' not found in design. No hack applied.")
+            return
+        layer_norm_pass3_fp = global_modules[top_module]
+
+        vec_width = int(self.halide_gen_args_dict["vec_width"])
+        vec_height = int(self.halide_gen_args_dict["vec_height"])
+        glb_i = int(self.halide_gen_args_dict["glb_i"])
+
+        instances = layer_norm_pass3_fp["instances"]
+
+        # Update metadata for io16in_weight_host_stencil and io16in_bias_host_stencil
+        for inst_name, inst_config in instances.items():
+            if (("io16in_weight_host_stencil" in inst_name or "io16in_bias_host_stencil" in inst_name) and
+                inst_config.get("modref") == "global.IO"):
+                if "glb2out_0" in inst_config.get("metadata", {}):
+                    md = inst_config["metadata"]["glb2out_0"]
+                    md["cycle_starting_addr"] = [0]
+                    md["cycle_stride"] = [1, 1]
+                    md["dimensionality"] = 2
+                    md["extent"] = [vec_width // glb_i, vec_height]
+                    md["read_data_starting_addr"] = [0]
+                    md["read_data_stride"] = [1, 1 - (vec_width // glb_i)]
+
+        # Overwrite the JSON
+        with open(json_path, "w") as f:
+            f.write(pretty_format_json(design))
 
     def hack_for_gelu_pass1_mu_input_fp_rv(self, json_path, bin_path):
 
