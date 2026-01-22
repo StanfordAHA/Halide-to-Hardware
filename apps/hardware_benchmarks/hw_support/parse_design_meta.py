@@ -6,7 +6,7 @@ import sys
 import re
 import copy
 import traceback
-from voyager.scripts.aha_flow.glb_dma_config import get_glb_dma_config
+from voyager.scripts.aha_flow.glb_dma_config import get_glb_dma_config, get_glb_dma_config_helper
 
 def atoi(text):
     return int(text) if text.isdigit() else text
@@ -459,6 +459,52 @@ def zircon_input_act_padding_workaround_hack_cycle_stride_k_y_x_tiling(extents, 
 
     return cycle_strides
 
+def hack_config_for_mha_concat(meta):
+    """
+    Hack the address generator config based on the matrix unit tiling.
+    This function reads the tiling file and modifies the address generator config in the design meta.
+    """
+    MU_WORD_NUM_BYTES = 32  # 32 bytes per word in the MU
+    BANK_DATA_WIDTH = 64  # 64 bits per bank in GLB
+    BANK_NUM_BYTES = BANK_DATA_WIDTH // 8  # 8 bytes per bank in GLB
+    CGRA_WORD_NUM_BYTES = 2 # 2 bytes per word in CGRA
+
+    assert "HALIDE_GEN_ARGS" in os.environ, "HALIDE_GEN_ARGS environment variable must be set for MHA_CONCAT"
+    HALIDE_GEN_ARGS = os.environ["HALIDE_GEN_ARGS"]
+
+    hidden_dim_match = re.search(r'hidden_dim=(\d+)', HALIDE_GEN_ARGS)
+    assert hidden_dim_match, "No hidden_dim in HALIDE_GEN_ARGS!"
+    hidden_dim = int(hidden_dim_match.group(1))
+
+    seq_len_match = re.search(r'seq_len=(\d+)', HALIDE_GEN_ARGS)
+    assert seq_len_match, "No seq_len in HALIDE_GEN_ARGS!"
+    seq_len = int(seq_len_match.group(1))
+
+    assert "NUM_ATTENTION_HEADS" in os.environ, "NUM_ATTENTION_HEADS environment variable must be set for MHA_CONCAT"
+    num_attn_heads = int(os.environ["NUM_ATTENTION_HEADS"])
+
+    head_dim = hidden_dim // num_attn_heads
+
+    loop_bounds = [head_dim // MU_WORD_NUM_BYTES, seq_len, num_attn_heads]  # D, N, H
+    loop_order = ['D', 'N', 'H']
+
+
+    # Update the address generator config in the design meta
+    # TODO: This really shouldn't be applied to ALL outputs. In future, need some sort of metadata to specify which outputs are influenced by the tiling
+    for io_type in ["outputs"]:
+        for io in meta["IOs"][io_type]:
+            # Get the GLB DMA config
+            dimensionality, strides, extents = get_glb_dma_config_helper(loop_order, loop_bounds, mha_concat=True)
+            if "io_tiles" in io:
+                for tile in io["io_tiles"]:
+                    addr = tile.get("addr", {})
+                    if addr:
+                        # Update the strides, extents, and dimensionality based on MU tiling
+                        addr["cycle_stride"] = [1] * dimensionality # reading/writing on every RV handshake, so cycle stride is all 1
+                        addr["dimensionality"] = dimensionality
+                        addr["extent"] = extents
+                        addr["write_data_stride"] = strides
+    return meta
 
 def hack_addr_gen_for_mu_tiling(meta, mu_tiling_file):
     """
@@ -479,6 +525,10 @@ def hack_addr_gen_for_mu_tiling(meta, mu_tiling_file):
     if zircon_input_act_padding_workaround:
         assert "ZIRCON_INPUT_ACT_PADDING_WORKAROUND_SIZE" in os.environ, "ZIRCON_INPUT_ACT_PADDING_WORKAROUND_SIZE environment variable must be set for ZIRCON_INPUT_ACT_PADDING_WORKAROUND"
         zircon_input_act_padding_workaround_size = int(os.environ.get("ZIRCON_INPUT_ACT_PADDING_WORKAROUND_SIZE", 0))
+
+
+    mha_permute = "MHA_PERMUTE" in os.environ and os.environ["MHA_PERMUTE"] == "1"
+    num_attn_heads = int(os.environ.get("NUM_ATTENTION_HEADS", 12))
     # K dimension host tiling: used in resnet18 conv5 in Zircon
     # k_dim_host_tiling = "K_DIM_HOST_TILING" in os.environ and os.environ["K_DIM_HOST_TILING"] == "1"
     # if k_dim_host_tiling:
@@ -493,9 +543,25 @@ def hack_addr_gen_for_mu_tiling(meta, mu_tiling_file):
     for io_type in ["inputs", "outputs"]:
         apply_zircon_fx_fy_stride_workaround = zircon_fx_fy_stride_workaround and io_type == "outputs"
         apply_zircon_input_act_padding_workaround = zircon_input_act_padding_workaround and io_type == "outputs"
-        # Get the GLB DMA config
-        dimensionality, strides, extents = get_glb_dma_config(mu_tiling_file, zircon_fx_fy_stride_workaround=apply_zircon_fx_fy_stride_workaround, zircon_input_act_padding_workaround=apply_zircon_input_act_padding_workaround)
+
         for io in meta["IOs"][io_type]:
+            io_name = io["name"]
+            io_name_caps = io_name.upper()
+
+            io_broadcast_dims = []
+            if "BROADCAST_TENSORS" in os.environ:
+                broadcast_tensors = os.environ["BROADCAST_TENSORS"].split(",")
+                if io_name_caps in broadcast_tensors:
+                    io_broadcast_dims_env_str = f"{io_name_caps}_BROADCAST_DIMS"
+                    assert io_broadcast_dims_env_str in os.environ, f"{io_broadcast_dims_env_str} environment variable must be set because {io_name_caps} is in BROADCAST_TENSORS"
+                    io_broadcast_dims = os.environ[io_broadcast_dims_env_str].split(",")
+
+
+                    print(f"\033[94m INFO: Tensor {io_name_caps} is being broadcast over dims: {io_broadcast_dims}\033[0m")
+
+            # Get the GLB DMA config
+            dimensionality, strides, extents = get_glb_dma_config(mu_tiling_file, zircon_fx_fy_stride_workaround=apply_zircon_fx_fy_stride_workaround,
+                                                                  zircon_input_act_padding_workaround=apply_zircon_input_act_padding_workaround, mha_permute=mha_permute, num_attn_heads=num_attn_heads, broadcast_dims=io_broadcast_dims)
             if "io_tiles" in io:
                 for tile in io["io_tiles"]:
                     addr = tile.get("addr", {})
@@ -548,6 +614,13 @@ def hack_addr_gen_for_k_dim_host_tiling(meta):
     BANK_NUM_BYTES = BANK_DATA_WIDTH // 8  # 8 bytes per bank in GLB
     CGRA_WORD_NUM_BYTES = 2 # 2 bytes per word in CGRA
     NUM_BYTES_PER_IO_TILE = 4 # 4 bytes per IO tile (4-wide word)
+
+    # This means the OUTPUT tensor is too large to fit in GLB. So we tile along K dim to fit it in GLB.
+    # In regular k_dim_host_tiling, it is assumed that the OUTPUT tesnor can fit in the GLB. The tiling is due to input tensors being too large to fit in GLB.
+    output_tensor_k_dim_tiling = "OUTPUT_TENSOR_K_DIM_TILING" in os.environ and os.environ["OUTPUT_TENSOR_K_DIM_TILING"] == "1"
+
+    if output_tensor_k_dim_tiling:
+        return meta # No need to hack the address generator output. Simply return the meta as is.
 
     assert "HALIDE_GEN_ARGS" in os.environ, "HALIDE_GEN_ARGS environment variable must be set for K_DIM_HOST_TILING"
     HALIDE_GEN_ARGS = os.environ["HALIDE_GEN_ARGS"]
@@ -744,6 +817,11 @@ def main():
         if k_dim_host_tiling:
             print(f"\033[94m INFO: Modifying address generator config for K dimension host tiling...\033[0m")
             meta = hack_addr_gen_for_k_dim_host_tiling(meta)
+
+        multi_head_attention_concat = "MHA_CONCAT" in os.environ and os.environ["MHA_CONCAT"] == "1"
+        if multi_head_attention_concat:
+            print(f"\033[94m INFO: Modifying design meta for multi-head attention concat...\033[0m")
+            meta = hack_config_for_mha_concat(meta)
 
         print("writing to", outputName)
         with open(outputName, 'w', encoding='utf-8') as fileout:
