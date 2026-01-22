@@ -17,6 +17,8 @@ APPS_NEEDING_HACKS = [
     "layer_norm_pass3_fp",
     "gelu_pass1_mu_input_fp",
     "gelu_pass2_fp",
+    "add_gelu_pass1_mu_input_fp",
+    "add_gelu_pass2_fp",
     "silu_pass2_fp",
     "swiglu_pass2_fp",
     "vector_reduction_fp",
@@ -3724,6 +3726,521 @@ class SelectedDesignHacker:
         with open(design_meta_path, "w") as f:
             json.dump(design_meta, f, indent=2)
 
+    def hack_for_add_gelu_pass1_mu_input_fp_rv(self, json_path, bin_path):
+        with open(json_path, "r") as f:
+            design = json.load(f)
+
+        top_module = "add_gelu_pass1_mu_input_fp"
+        global_modules = design["namespaces"]["global"]["modules"]
+        if top_module not in global_modules:
+            print(f"WARNING: Module '{top_module}' not found in design. No hack applied.")
+            return
+        add_gelu_pass1_mu_input_fp = global_modules[top_module]
+
+        instances = add_gelu_pass1_mu_input_fp["instances"]
+        connections = add_gelu_pass1_mu_input_fp["connections"]
+        type_fields = add_gelu_pass1_mu_input_fp["type"][1]
+
+        # Get halide gen args
+        vec_len = int(self.halide_gen_args_dict["vec_width"])
+        num_vecs = int(self.halide_gen_args_dict["vec_height"])
+        mu_i = int(self.halide_gen_args_dict["mu_i"])
+        dummy_max_nop = int(self.halide_gen_args_dict.get("dummy_max_nop", "0"))
+        extent = vec_len * num_vecs // mu_i
+
+        # Find all MU input IO instances
+        input_io_instances = {}
+        for inst_name, inst_config in instances.items():
+            if (inst_name.startswith("io16in_mu_input_host_stencil") and
+                inst_config.get("modref") == "global.IO" and
+                "_clkwrk_" in inst_name and
+                "_op_hcompute_mu_input_glb_stencil" in inst_name):
+                # Extract clkwrk index
+                match = re.search(r"_clkwrk_(\d+)_op_hcompute_mu_input_glb_stencil", inst_name)
+                if match:
+                    clkwrk_idx = int(match.group(1))
+                    # Extract stencil index from the read operation
+                    # Pattern can be either "stencil_read" (index 0) or "stencil_<idx>_read"
+                    # Look for pattern like "glb_stencil_10_read" or "glb_stencil_read"
+                    stencil_match = re.search(r"glb_stencil_(\d+)_read", inst_name)
+                    if stencil_match:
+                        stencil_idx = int(stencil_match.group(1))
+                    else:
+                        # If no number after "glb_stencil", it's stencil_0 (implicit)
+                        stencil_idx = 0
+                    input_io_instances[clkwrk_idx] = {
+                        "name": inst_name,
+                        "stencil_idx": stencil_idx
+                    }
+
+        # Find all output IO instances and extract stencil indices
+        output_io_info = {}  # Maps stencil_idx to (clkwrk_idx, output_io_name, input_io_info)
+
+        for inst_name, inst_config in instances.items():
+            if (inst_name.startswith("io16_hw_add_gelu_upper_output_stencil_clkwrk_") and
+                inst_config.get("modref") == "global.IO" and
+                "_op_hcompute_hw_add_gelu_upper_output_stencil" in inst_name and
+                "_write_0" in inst_name):
+                # Extract clkwrk index from output IO
+                clkwrk_match = re.search(r"_clkwrk_(\d+)_op_hcompute", inst_name)
+                if clkwrk_match:
+                    output_clkwrk_idx = int(clkwrk_match.group(1))
+                    # Calculate input clkwrk_idx (output_clkwrk_idx - mu_i)
+                    input_clkwrk_idx = output_clkwrk_idx - mu_i
+
+                    # Extract stencil index from between "stencil_" and "_write"
+                    # Pattern: hw_add_gelu_upper_output_stencil_<idx>_write or hw_add_gelu_upper_output_stencil_write_0 (idx=0)
+                    # Look for pattern like: stencil_1_write or stencil_write_0
+                    stencil_match = re.search(r"stencil_(\d+)_write", inst_name)
+                    if stencil_match:
+                        stencil_idx = int(stencil_match.group(1))
+                    else:
+                        # Check if it's just "stencil_write_0" (no index between stencil_ and _write, so 0)
+                        if re.search(r"stencil_write_0", inst_name):
+                            stencil_idx = 0
+                        else:
+                            continue  # Skip if pattern doesn't match
+
+                    # Find corresponding input IO
+                    if input_clkwrk_idx in input_io_instances:
+                        input_io_info = input_io_instances[input_clkwrk_idx]
+                        output_io_info[stencil_idx] = {
+                            "clkwrk_idx": input_clkwrk_idx,
+                            "output_io_name": inst_name,
+                            "input_io_info": input_io_info
+                        }
+
+        # Sort by stencil index
+        sorted_stencil_indices = sorted(output_io_info.keys())
+
+        # Divide lanes into two halves based on stencil index
+        first_half_stencil_indices = [idx for idx in sorted_stencil_indices if idx < len(sorted_stencil_indices) // 2]
+        second_half_stencil_indices = [idx for idx in sorted_stencil_indices if idx >= len(sorted_stencil_indices) // 2]
+
+        # Assert that both halves have the same length
+        assert len(first_half_stencil_indices) == len(second_half_stencil_indices), \
+            f"First half ({len(first_half_stencil_indices)}) and second half ({len(second_half_stencil_indices)}) must have the same length"
+
+        # Map back to clkwrk indices for easier processing
+        first_half_indices = [output_io_info[idx]["clkwrk_idx"] for idx in first_half_stencil_indices]
+        second_half_indices = [output_io_info[idx]["clkwrk_idx"] for idx in second_half_stencil_indices]
+
+        # Create output IO template
+        output_io_tpl = {
+            "modref": "global.IO",
+            "modargs": {"mode": ["String", "out"]},
+            "metadata": {
+                "in2glb_0": {
+                    "cycle_starting_addr": [0],
+                    "cycle_stride": [1],
+                    "dimensionality": 1,
+                    "extent": [extent],
+                    "write_data_starting_addr": [0],
+                    "write_data_stride": [1]
+                }
+            }
+        }
+
+        # Helper function to add connection only if it doesn't exist
+        def add_conn_once(src, dst):
+            pair = [src, dst]
+            if pair not in connections:
+                connections.append(pair)
+
+        # Helper function to remove connection
+        # Connections can be in [src, dst] or [dst, src] format
+        def remove_conn(src, dst):
+            pair1 = [src, dst]
+            pair2 = [dst, src]
+            if pair1 in connections:
+                connections.remove(pair1)
+            elif pair2 in connections:
+                connections.remove(pair2)
+
+        # For second half: remove add PE and gelu compute pipeline, pass through mu_input via dummy nop PE
+        for stencil_idx in second_half_stencil_indices:
+            io_info = output_io_info[stencil_idx]
+            clkwrk_idx = io_info["clkwrk_idx"]
+            input_io_info = io_info["input_io_info"]
+            input_io_name = input_io_info["name"]
+            old_output_io_name = io_info["output_io_name"]
+
+            # Find the add PE that takes mu_input and input_psum0
+            # Pattern: op_hcompute_output_add_gelu_upper_cgra_stencil*$inner_compute$float_DW_fp_add_*
+            # The add PE has .data0 connected to mu_input and .data1 connected to input_psum0
+            add_pe_name = None
+            add_pe_connections_to_remove = []
+
+            # Find add PE connected to mu_input via .data0
+            input_io_sources = [f"{input_io_name}.out", f"MU_{input_io_name}.out"]
+            for conn in connections:
+                a, b = conn[0], conn[1]
+                if ((a.endswith(".data0") and b in input_io_sources) or
+                    (b.endswith(".data0") and a in input_io_sources)):
+                    pe_port = a if a.endswith(".data0") else b
+                    pe_inst = pe_port.split(".")[0]
+                    if ("op_hcompute_output_add_gelu_upper_cgra_stencil" in pe_inst and
+                        "$inner_compute$float_DW_fp_add" in pe_inst):
+                        add_pe_name = pe_inst
+                        break
+
+            if add_pe_name is None:
+                raise ValueError(f"[ERROR]: Could not find add PE for clkwrk_idx {clkwrk_idx}.")
+
+            # Find all connections involving the add PE
+            # Also find the input_psum0_host_stencil IO connected to add PE's .data1
+            input_psum0_io_name = None
+            for conn in connections:
+                src, dst = conn[0], conn[1]
+                src_inst = src.split(".")[0] if "." in src else src
+                dst_inst = dst.split(".")[0] if "." in dst else dst
+                if src_inst == add_pe_name or dst_inst == add_pe_name:
+                    add_pe_connections_to_remove.append(conn)
+                    # Check if this connection is to input_psum0_host_stencil IO (.data1)
+                    if (src_inst == add_pe_name and src.endswith(".data1")) or (dst_inst == add_pe_name and dst.endswith(".data1")):
+                        other_end = dst if src_inst == add_pe_name else src
+                        if other_end.startswith("io16in_input_psum0_host_stencil"):
+                            input_psum0_io_name = other_end.split(".")[0]
+
+            # Pattern to match gelu compute pipeline instances (everything after the add)
+            # We need to find all instances that are part of the gelu compute pipeline
+            gelu_compute_instances = set()
+            gelu_compute_connections_to_remove = []
+
+            # Start from the add PE output and trace all gelu compute instances
+            instances_to_check = [add_pe_name]
+            checked_instances = set()
+
+            while instances_to_check:
+                current_inst = instances_to_check.pop(0)
+                if current_inst in checked_instances:
+                    continue
+                checked_instances.add(current_inst)
+
+                # Find all connections involving this instance
+                for conn in connections:
+                    src, dst = conn[0], conn[1]
+                    src_inst = src.split(".")[0] if "." in src else src
+                    dst_inst = dst.split(".")[0] if "." in dst else dst
+
+                    # Check if this connection involves the current instance
+                    if src_inst == current_inst or dst_inst == current_inst:
+                        # Check if the other end is part of gelu compute
+                        other_inst = dst_inst if src_inst == current_inst else src_inst
+
+                        # Skip if it's the add PE, input IO, output IO, or self
+                        if (other_inst == add_pe_name or
+                            other_inst.startswith("io16in_") or
+                            other_inst.startswith("io16_hw_") or
+                            other_inst.startswith("self.") or
+                            other_inst.startswith("op_hcompute_hw_add_gelu_upper_output_stencil") or
+                            other_inst.startswith("op_hcompute_hw_psum1_lower_output_stencil")):
+                            continue
+
+                        # Check if it's part of gelu compute pipeline
+                        if ("op_hcompute_output_add_gelu_upper_cgra_stencil" in other_inst and
+                            ("$inner_compute$float_DW_fp_mul" in other_inst or
+                             "$inner_compute$fp_" in other_inst or
+                             "$inner_compute$i" in other_inst or
+                             "$inner_compute$c" in other_inst)):
+                            gelu_compute_instances.add(other_inst)
+                            gelu_compute_connections_to_remove.append(conn)
+                            if other_inst not in checked_instances:
+                                instances_to_check.append(other_inst)
+
+            # Remove all connections involving gelu compute pipeline
+            for conn in gelu_compute_connections_to_remove:
+                remove_conn(conn[0], conn[1])
+
+            # Remove all connections involving the add PE
+            for conn in add_pe_connections_to_remove:
+                remove_conn(conn[0], conn[1])
+
+            # Remove gelu compute instances that are no longer connected
+            for inst_name in gelu_compute_instances:
+                # Check if this instance is still referenced in any connection
+                still_referenced = False
+                for conn in connections:
+                    src, dst = conn[0], conn[1]
+                    src_inst = src.split(".")[0] if "." in src else src
+                    dst_inst = dst.split(".")[0] if "." in dst else dst
+                    if inst_name == src_inst or inst_name == dst_inst:
+                        still_referenced = True
+                        break
+
+                # Only remove if not referenced in any connection
+                if not still_referenced:
+                    if inst_name in instances:
+                        del instances[inst_name]
+
+            # Remove add PE if it's no longer connected
+            add_pe_still_referenced = False
+            for conn in connections:
+                src, dst = conn[0], conn[1]
+                src_inst = src.split(".")[0] if "." in src else src
+                dst_inst = dst.split(".")[0] if "." in dst else dst
+                if add_pe_name == src_inst or add_pe_name == dst_inst:
+                    add_pe_still_referenced = True
+                    break
+
+            if not add_pe_still_referenced:
+                if add_pe_name in instances:
+                    del instances[add_pe_name]
+
+            # Remove input_psum0_host_stencil IO - it's no longer needed since we removed the add PE
+            # We need to remove: 1) add PE connection (already done above), 2) self connection, 3) the IO instance
+            if input_psum0_io_name:
+                # Find the port name (remove io16in_ prefix)
+                port_name = input_psum0_io_name.replace("io16in_", "")
+                # Remove self connections for input_psum0 (e.g., self.input_psum0_host_stencil_clkwrk_18_...)
+                connections_to_remove = []
+                for conn in connections:
+                    src, dst = conn[0], conn[1]
+                    # Remove connections with self.port_name format
+                    if src == f"self.{port_name}" or dst == f"self.{port_name}":
+                        connections_to_remove.append(conn)
+                    # Also remove any remaining connections that reference the instance name directly
+                    elif input_psum0_io_name == src or input_psum0_io_name == dst:
+                        connections_to_remove.append(conn)
+                    elif src.startswith(f"{input_psum0_io_name}.") or dst.startswith(f"{input_psum0_io_name}."):
+                        connections_to_remove.append(conn)
+                for conn in connections_to_remove:
+                    remove_conn(conn[0], conn[1])
+                # Remove the instance
+                if input_psum0_io_name in instances:
+                    del instances[input_psum0_io_name]
+                # Remove from type_fields if it exists
+                for i, field in enumerate(type_fields):
+                    if field[0] == port_name:
+                        del type_fields[i]
+                        break
+
+            # Rename output IO from hw_add_gelu_upper_output to hw_psum1_lower_output
+            # Extract the stencil suffix from old_output_io_name
+            stencil_suffix = "" if stencil_idx == 0 else f"_{stencil_idx}"
+            output_clkwrk_idx = clkwrk_idx + mu_i
+            output_io_name = f"io16_hw_psum1_lower_output_stencil_clkwrk_{output_clkwrk_idx}_op_hcompute_hw_psum1_lower_output_stencil{stencil_suffix}_write_0"
+
+            # Rename output IO from hw_add_gelu_upper_output to hw_psum1_lower_output
+            if old_output_io_name in instances:
+                # Create new output IO instance with new name
+                instances[output_io_name] = copy.deepcopy(instances[old_output_io_name])
+                instances[output_io_name]["metadata"]["in2glb_0"]["extent"] = [extent]
+
+                # Remove old output IO instance
+                del instances[old_output_io_name]
+
+                # Update type_fields: replace old port name with new port name
+                old_port_name = old_output_io_name.replace("io16_", "")
+                new_port_name = output_io_name.replace("io16_", "")
+                for field in type_fields:
+                    if field[0] == old_port_name:
+                        field[0] = new_port_name
+                        break
+
+                # Update connections: replace old IO name with new IO name
+                # Also update self. connections that reference the port name
+                for conn in connections:
+                    if old_output_io_name in conn[0]:
+                        conn[0] = conn[0].replace(old_output_io_name, output_io_name)
+                    if old_output_io_name in conn[1]:
+                        conn[1] = conn[1].replace(old_output_io_name, output_io_name)
+                    # Update self. connections
+                    if conn[0] == f"self.{old_port_name}":
+                        conn[0] = f"self.{new_port_name}"
+                    if conn[1] == f"self.{old_port_name}":
+                        conn[1] = f"self.{new_port_name}"
+
+                # Remove existing connection from gelu compute or add PE to output IO
+                connections_to_remove = []
+                for conn in connections:
+                    src, dst = conn[0], conn[1]
+                    if dst == f"{output_io_name}.in" or src == f"{output_io_name}.in":
+                        # Check if source is part of gelu compute or add PE
+                        other_end = dst if src == f"{output_io_name}.in" else src
+                        other_inst = other_end.split(".")[0] if "." in other_end else other_end
+                        if other_inst in gelu_compute_instances or other_inst == add_pe_name:
+                            connections_to_remove.append(conn)
+
+                for conn in connections_to_remove:
+                    remove_conn(conn[0], conn[1])
+
+                # Create dummy nop PE and constant
+                dummy_pe_name = f"dummy_nop_psum1_lower_clkwrk_{clkwrk_idx}_pe"
+                dummy_const_name = f"dummy_nop_psum1_lower_clkwrk_{clkwrk_idx}_const"
+
+                # Create const instruction instance
+                if dummy_const_name not in instances:
+                    instances[dummy_const_name] = {
+                        "genref": "coreir.const",
+                        "genargs": {"width": ["Int", 84]},
+                        "modargs": {"value": [["BitVector", 84], self.DUMMY_MAX_NOP_INSTR]},
+                    }
+
+                # Create PE instance
+                if dummy_pe_name not in instances:
+                    instances[dummy_pe_name] = {"modref": "global.PE"}
+
+                # Wire up: mu_input IO -> dummy PE -> output IO
+                add_conn_once(f"{dummy_pe_name}.data0", f"{input_io_name}.out")
+                add_conn_once(f"{dummy_pe_name}.inst", f"{dummy_const_name}.out")
+                add_conn_once(f"{output_io_name}.in", f"{dummy_pe_name}.O0")
+            else:
+                raise ValueError(f"[ERROR]: Output IO {old_output_io_name} not found in instances.")
+
+        # For first half: insert input buffer MEM between add output and gelu compute
+        # First, find or create shared clock constant
+        shared_clk_const_name = f"{top_module}_clk_en_const"
+        if shared_clk_const_name not in instances:
+            instances[shared_clk_const_name] = copy.deepcopy(self.const_clk_tpl)
+
+        # Update extents for first half output IOs (io16_hw_add_gelu_upper_output_stencil) and insert MEM buffers
+        for stencil_idx in first_half_stencil_indices:
+            io_info = output_io_info[stencil_idx]
+            clkwrk_idx = io_info["clkwrk_idx"]
+            input_io_info = io_info["input_io_info"]
+            input_io_name = input_io_info["name"]
+            output_io_name = io_info["output_io_name"]
+
+            if output_io_name in instances:
+                instances[output_io_name]["metadata"]["in2glb_0"]["extent"] = [extent]
+
+            # Find the add PE that takes mu_input and input_psum0
+            add_pe_name = None
+            add_pe_output_conn = None
+
+            # Check both with and without "MU_" prefix for input IO
+            input_io_sources = [f"{input_io_name}.out", f"MU_{input_io_name}.out"]
+
+            # Find add PE connected to mu_input via .data0
+            for conn in connections:
+                a, b = conn[0], conn[1]
+                if ((a.endswith(".data0") and b in input_io_sources) or
+                    (b.endswith(".data0") and a in input_io_sources)):
+                    pe_port = a if a.endswith(".data0") else b
+                    pe_inst = pe_port.split(".")[0]
+                    if ("op_hcompute_output_add_gelu_upper_cgra_stencil" in pe_inst and
+                        "$inner_compute$float_DW_fp_add" in pe_inst):
+                        add_pe_name = pe_inst
+                        # Find connection from add PE output (.O0) to gelu compute
+                        for conn2 in connections:
+                            a2, b2 = conn2[0], conn2[1]
+                            if ((a2 == f"{add_pe_name}.O0") or (b2 == f"{add_pe_name}.O0")):
+                                # Check if this connection goes to gelu compute (not output IO)
+                                other_end = a2 if b2 == f"{add_pe_name}.O0" else b2
+                                if ("float_DW_fp_mul" in other_end or "fp_getmant" in other_end or
+                                    "fp_subexp" in other_end or "fp_addiexp" in other_end or
+                                    "fp_getffrac" in other_end or "fp_getfint" in other_end):
+                                    add_pe_output_conn = conn2
+                                    break
+                        break
+
+            if add_pe_name is None:
+                raise ValueError(f"[ERROR]: Could not find add PE for clkwrk_idx {clkwrk_idx}.")
+            if add_pe_output_conn is None:
+                raise ValueError(f"[ERROR]: Could not find add PE output connection to gelu compute for clkwrk_idx {clkwrk_idx}.")
+
+            # Find both fp mul PEs connected to add PE output
+            # First fp mul PE: has .data0 connected to add.O0
+            # Final fp mul PE: has .data1 connected to add.O0 and .O0 connected to output IO
+            first_fp_mul_pe_name = None
+            final_fp_mul_pe_name = None
+            add_pe_output = f"{add_pe_name}.O0"
+
+            # Find first fp mul PE connected to add.O0 via .data0
+            for conn in connections:
+                a, b = conn[0], conn[1]
+                if ((a.endswith(".data0") and b == add_pe_output) or
+                    (b.endswith(".data0") and a == add_pe_output)):
+                    pe_port = a if a.endswith(".data0") else b
+                    pe_inst = pe_port.split(".")[0]
+                    if ("op_hcompute_output_add_gelu_upper_cgra_stencil" in pe_inst and
+                        "$inner_compute$float_DW_fp_mul" in pe_inst):
+                        first_fp_mul_pe_name = pe_inst
+                        break
+
+            # Find final fp mul PE connected to output IO via .O0
+            for conn in connections:
+                a, b = conn[0], conn[1]
+                if ((a.endswith(".O0") and b == f"{output_io_name}.in") or
+                    (b.endswith(".O0") and a == f"{output_io_name}.in")):
+                    pe_port = a if a.endswith(".O0") else b
+                    pe_inst = pe_port.split(".")[0]
+                    if ("op_hcompute_output_add_gelu_upper_cgra_stencil" in pe_inst and
+                        "$inner_compute$float_DW_fp_mul" in pe_inst):
+                        final_fp_mul_pe_name = pe_inst
+                        break
+
+            if first_fp_mul_pe_name is None:
+                raise ValueError(f"[ERROR]: Could not find first fp mul PE (data0) for clkwrk_idx {clkwrk_idx}.")
+            if final_fp_mul_pe_name is None:
+                raise ValueError(f"[ERROR]: Could not find final fp mul PE (O0->output) for clkwrk_idx {clkwrk_idx}.")
+
+            # Verify final fp mul PE's .data1 is connected to add.O0
+            final_fp_mul_data1_conn = None
+            for conn in connections:
+                a, b = conn[0], conn[1]
+                if ((a == f"{final_fp_mul_pe_name}.data1" and b == add_pe_output) or
+                    (b == f"{final_fp_mul_pe_name}.data1" and a == add_pe_output)):
+                    final_fp_mul_data1_conn = conn
+                    break
+
+            if final_fp_mul_data1_conn is None:
+                raise ValueError(f"[ERROR]: Final fp mul PE {final_fp_mul_pe_name} for clkwrk_idx {clkwrk_idx} does not have .data1 connected to add.O0.")
+
+            # Find connection from add.O0 to first fp mul PE's data0
+            first_fp_mul_data0_conn = None
+            for conn in connections:
+                a, b = conn[0], conn[1]
+                if ((a == f"{first_fp_mul_pe_name}.data0" and b == add_pe_output) or
+                    (b == f"{first_fp_mul_pe_name}.data0" and a == add_pe_output)):
+                    first_fp_mul_data0_conn = conn
+                    break
+
+            if first_fp_mul_data0_conn is None:
+                raise ValueError(f"[ERROR]: First fp mul PE {first_fp_mul_pe_name} for clkwrk_idx {clkwrk_idx} does not have .data0 connected to add.O0.")
+
+            # Create input buffer MEM instance
+            input_buffer_mem_name = f"{top_module}_input_buffer_mem_clkwrk_{clkwrk_idx}"
+            if input_buffer_mem_name not in instances:
+                instances[input_buffer_mem_name] = copy.deepcopy(self.mem_tpl)
+                instances[input_buffer_mem_name]["genargs"]["ID"][1] = input_buffer_mem_name
+
+            # Break existing connections from add.O0 to both fp mul PEs
+            remove_conn(first_fp_mul_data0_conn[0], first_fp_mul_data0_conn[1])
+            remove_conn(final_fp_mul_data1_conn[0], final_fp_mul_data1_conn[1])
+
+            # Wire up MEM: add.O0 -> MEM -> both fp mul PEs
+            add_conn_once(add_pe_output, f"{input_buffer_mem_name}.data_in_0")
+            add_conn_once(f"{input_buffer_mem_name}.data_out_0", f"{first_fp_mul_pe_name}.data0")
+            add_conn_once(f"{input_buffer_mem_name}.data_out_1", f"{final_fp_mul_pe_name}.data1")
+
+            # Connect clock enable
+            add_conn_once(f"{input_buffer_mem_name}.clk_en", f"{shared_clk_const_name}.out")
+
+        # Overwrite the JSON
+        with open(json_path, "w") as f:
+            f.write(pretty_format_json(design))
+
+        # Update design_meta_halide.json
+        design_meta_path = os.path.join(bin_path, "design_meta_halide.json")
+        with open(design_meta_path, "r") as f:
+            design_meta = json.load(f)
+
+        # Add new output to design_meta_halide.json
+        design_meta["IOs"]["outputs"].append({
+            "bitwidth": 16,
+            "datafile": "hw_psum1_lower_output.raw",
+            "name": "hw_psum1_lower_output_stencil",
+            "shape": [vec_len // 2, num_vecs]
+        })
+
+        # Modify existing output shapes
+        for output in design_meta["IOs"]["outputs"]:
+            output["shape"] = [vec_len // 2, num_vecs]
+
+        with open(design_meta_path, "w") as f:
+            json.dump(design_meta, f, indent=2)
 
     def hack_for_gelu_pass2_fp_rv(self, json_path, bin_path):
 
@@ -3832,6 +4349,141 @@ class SelectedDesignHacker:
             add_conn_once(input_io_out, f"{input_buffer_mem_name}.data_in_0")
             add_conn_once(f"{input_buffer_mem_name}.data_out_0", f"{pe_data0_name}.data0")
             add_conn_once(f"{input_buffer_mem_name}.data_out_1", f"{pe_data1_name}.data1")
+
+            # Connect clock enable
+            add_conn_once(f"{input_buffer_mem_name}.clk_en", f"{shared_clk_const_name}.out")
+
+        # Overwrite the JSON
+        with open(json_path, "w") as f:
+            f.write(pretty_format_json(design))
+
+    def hack_for_add_gelu_pass2_fp_rv(self, json_path, bin_path):
+
+        with open(json_path, "r") as f:
+            design = json.load(f)
+
+        top_module = "add_gelu_pass2_fp"
+        global_modules = design["namespaces"]["global"]["modules"]
+        if top_module not in global_modules:
+            print(f"WARNING: Module '{top_module}' not found in design. No hack applied.")
+            return
+        add_gelu_pass2_fp = global_modules[top_module]
+
+        instances = add_gelu_pass2_fp["instances"]
+        connections = add_gelu_pass2_fp["connections"]
+
+        # Find all input IO instances matching the pattern
+        input_io_instances = []
+        for inst_name, inst_config in instances.items():
+            if (inst_name.startswith("io16in_input_host_stencil") and
+                inst_config.get("modref") == "global.IO" and
+                "_clkwrk_" in inst_name and
+                "_op_hcompute_input_glb_stencil" in inst_name):
+                input_io_instances.append(inst_name)
+
+        # Sort IO instances by clkwrk index for consistent ordering
+        def extract_clkwrk_idx(name):
+            match = re.search(r"_clkwrk_(\d+)_", name)
+            return int(match.group(1)) if match else 0
+        input_io_instances.sort(key=extract_clkwrk_idx)
+
+        # Helper function to add connection only if it doesn't exist
+        def add_conn_once(src, dst):
+            pair = [src, dst]
+            if pair not in connections:
+                connections.append(pair)
+
+        # Helper function to remove connection
+        def remove_conn(src, dst):
+            pair1 = [src, dst]
+            pair2 = [dst, src]
+            if pair1 in connections:
+                connections.remove(pair1)
+            elif pair2 in connections:
+                connections.remove(pair2)
+
+        # Find or create shared clock constant
+        shared_clk_const_name = f"{top_module}_clk_en_const"
+        if shared_clk_const_name not in instances:
+            instances[shared_clk_const_name] = copy.deepcopy(self.const_clk_tpl)
+
+        # For each input IO, find fp_add PE, then insert MEM buffer between fp_add and broadcasted fp_mul PEs
+        for input_io_name in input_io_instances:
+            # Find the fp_add PE connected to this input IO
+            fp_add_pe_name = None
+            fp_add_conn = None
+            input_io_out = f"{input_io_name}.out"
+
+            # Find fp_add PE with .data0 connected to input IO
+            for conn in connections:
+                a, b = conn[0], conn[1]
+                if ((a.endswith(".data0") and b == input_io_out) or
+                    (b.endswith(".data0") and a == input_io_out)):
+                    pe_port = a if a.endswith(".data0") else b
+                    pe_inst = pe_port.split(".")[0]
+                    if ("op_hcompute_output_cgra_stencil" in pe_inst and
+                        "float_DW_fp_add" in pe_inst):
+                        fp_add_pe_name = pe_inst
+                        fp_add_conn = conn
+                        break
+
+            if fp_add_pe_name is None:
+                raise ValueError(f"[ERROR]: Could not find fp_add PE with .data0 connected to {input_io_name}.")
+
+            # Find the two fp_mul PEs connected to fp_add PE's output
+            fp_mul_pe_data0_name = None
+            fp_mul_pe_data1_name = None
+            fp_mul_data0_conn = None
+            fp_mul_data1_conn = None
+            fp_add_out = f"{fp_add_pe_name}.O0"
+
+            # Find fp_mul PE with .data0 connected to fp_add.O0
+            for conn in connections:
+                a, b = conn[0], conn[1]
+                if ((a.endswith(".data0") and b == fp_add_out) or
+                    (b.endswith(".data0") and a == fp_add_out)):
+                    pe_port = a if a.endswith(".data0") else b
+                    pe_inst = pe_port.split(".")[0]
+                    if ("op_hcompute_output_cgra_stencil" in pe_inst and
+                        "float_DW_fp_mul" in pe_inst):
+                        fp_mul_pe_data0_name = pe_inst
+                        fp_mul_data0_conn = conn
+                        break
+
+            # Find fp_mul PE with .data1 connected to fp_add.O0
+            for conn in connections:
+                a, b = conn[0], conn[1]
+                if ((a.endswith(".data1") and b == fp_add_out) or
+                    (b.endswith(".data1") and a == fp_add_out)):
+                    pe_port = a if a.endswith(".data1") else b
+                    pe_inst = pe_port.split(".")[0]
+                    if ("op_hcompute_output_cgra_stencil" in pe_inst and
+                        "float_DW_fp_mul" in pe_inst):
+                        fp_mul_pe_data1_name = pe_inst
+                        fp_mul_data1_conn = conn
+                        break
+
+            if fp_mul_pe_data0_name is None:
+                raise ValueError(f"[ERROR]: Could not find fp_mul PE with .data0 connected to {fp_add_pe_name}.O0.")
+            if fp_mul_pe_data1_name is None:
+                raise ValueError(f"[ERROR]: Could not find fp_mul PE with .data1 connected to {fp_add_pe_name}.O0.")
+
+            # Create input buffer MEM instance
+            # Extract clkwrk index for naming
+            clkwrk_idx = extract_clkwrk_idx(input_io_name)
+            input_buffer_mem_name = f"{top_module}_input_buffer_mem_clkwrk_{clkwrk_idx}"
+            if input_buffer_mem_name not in instances:
+                instances[input_buffer_mem_name] = copy.deepcopy(self.mem_tpl)
+                instances[input_buffer_mem_name]["genargs"]["ID"][1] = input_buffer_mem_name
+
+            # Break existing connections from fp_add.O0 to both fp_mul PEs
+            remove_conn(fp_mul_data0_conn[0], fp_mul_data0_conn[1])
+            remove_conn(fp_mul_data1_conn[0], fp_mul_data1_conn[1])
+
+            # Wire up MEM: fp_add.O0 -> MEM -> both fp_mul PEs
+            add_conn_once(fp_add_out, f"{input_buffer_mem_name}.data_in_0")
+            add_conn_once(f"{input_buffer_mem_name}.data_out_0", f"{fp_mul_pe_data0_name}.data0")
+            add_conn_once(f"{input_buffer_mem_name}.data_out_1", f"{fp_mul_pe_data1_name}.data1")
 
             # Connect clock enable
             add_conn_once(f"{input_buffer_mem_name}.clk_en", f"{shared_clk_const_name}.out")
@@ -7416,6 +8068,7 @@ class GlobalDesignHacker:
 
         modules = design["namespaces"]["global"]["modules"]
 
+        pes_balanced = 0
         for mod_name, mod_def in modules.items():
             if "instances" not in mod_def or "connections" not in mod_def:
                 continue  # Skip modules without instances or connections
@@ -7430,70 +8083,81 @@ class GlobalDesignHacker:
 
             balance_lengths = path_balancing_info["balance_lengths"]
             name_to_id = path_balancing_info["name_to_id"]
-            pe_to_pond = path_balancing_info["pe_to_pond"]
+            pe_to_pond_dict = path_balancing_info["pe_to_pond"]
             num_balance_pes = len(balance_lengths)
-            pes_balanced = 0
 
             connections = mod_def["connections"]
-            connections_iter = copy.deepcopy(connections)
-            for edge in connections_iter:
-                left, right = edge[0], edge[1]
-                left_instance_name = left.split(".")[0]
-                left_port = left.split(".")[1] if "." in left else ""
-                right_instance_name = right.split(".")[0]
-                right_port = right.split(".")[1] if "." in right else ""
+            # connections_iter = copy.deepcopy(connections)
 
-                pe_input_port_names = ["data0", "data1", "data2"]
+            for pe in balance_lengths:
+                pe_to_pond_bool = pe_to_pond_dict[pe][0]  # True if PE output to pond, False if pond to PE input
+                pe_to_pond_port = pe_to_pond_dict[pe][1] # PE input port (data0, data1, or data2) if pond to PE input
 
-                left_is_path_balance_pe_output = left_port == "O0" and left_instance_name in name_to_id and (pe_to_pond[name_to_id[left_instance_name]] == True)
-                right_is_path_balance_pe_output = right_port == "O0" and right_instance_name in name_to_id and (pe_to_pond[name_to_id[right_instance_name]] == True)
+                found_matching_edge = False
+                for edge in connections:
+                    left, right = edge[0], edge[1]
+                    left_instance_name = left.split(".")[0]
+                    left_port = left.split(".")[1] if "." in left else ""
+                    right_instance_name = right.split(".")[0]
+                    right_port = right.split(".")[1] if "." in right else ""
 
-                left_is_path_balance_pe_input = left_port in pe_input_port_names and left_instance_name in name_to_id and (pe_to_pond[name_to_id[left_instance_name]] == False)
-                right_is_path_balance_pe_input = right_port in pe_input_port_names and right_instance_name in name_to_id and (pe_to_pond[name_to_id[right_instance_name]] == False)
+                    # Search for PE output
+                    if pe_to_pond_bool:
+                        left_is_path_balance_pe_output = left_port == "O0" and left_instance_name in name_to_id and (name_to_id[left_instance_name] == pe)
+                        right_is_path_balance_pe_output = right_port == "O0" and right_instance_name in name_to_id and (name_to_id[right_instance_name] == pe)
 
-                if left_is_path_balance_pe_output or right_is_path_balance_pe_output:
-                    pes_balanced += 1
-                    if left_is_path_balance_pe_output:
-                        pond_name = f"{name_to_id[left_instance_name]}_path_balance_pond"
+                        if left_is_path_balance_pe_output or right_is_path_balance_pe_output:
+                            found_matching_edge = True
+                            pes_balanced += 1
+                            if left_is_path_balance_pe_output:
+                                pond_name = f"{pe}_path_balance_pond"
+                            else:
+                                pond_name = f"{pe}_path_balance_pond"
+                            pond_instance = copy.deepcopy(self.pond_tpl)
+                            pond_instance["genargs"]["ID"][1] = pond_name
+                            instances[pond_name] = pond_instance
+
+                            # Found the PE output, insert pond here
+                            connections.remove(edge)
+                            if left_is_path_balance_pe_output:
+                                connections.append([left, f"{pond_name}.data_in_pond_0"])
+                                connections.append([f"{pond_name}.data_out_pond_1", right])
+                            else:
+                                connections.append([right, f"{pond_name}.data_in_pond_0"])
+                                connections.append([f"{pond_name}.data_out_pond_1", left])
+
+                            print(f"\033[93mINFO: Inserted pond '{pond_name}' between '{left}' and '{right}' for path balancing. Connection is PE -> Pond. \033[0m")
+
+                    # Search for one of the PE inputs
                     else:
-                        pond_name = f"{name_to_id[right_instance_name]}_path_balance_pond"
-                    pond_instance = copy.deepcopy(self.pond_tpl)
-                    pond_instance["genargs"]["ID"][1] = pond_name
-                    instances[pond_name] = pond_instance
+                        left_is_path_balance_pe_input = (left_port == pe_to_pond_port) and left_instance_name in name_to_id and (name_to_id[left_instance_name] == pe)
+                        right_is_path_balance_pe_input = (right_port == pe_to_pond_port) and right_instance_name in name_to_id and (name_to_id[right_instance_name] == pe)
 
-                    # Found the PE output, insert pond here
-                    connections.remove(edge)
-                    if left_is_path_balance_pe_output:
-                        connections.append([left, f"{pond_name}.data_in_pond_0"])
-                        connections.append([f"{pond_name}.data_out_pond_1", right])
-                    else:
-                        connections.append([right, f"{pond_name}.data_in_pond_0"])
-                        connections.append([f"{pond_name}.data_out_pond_1", left])
+                        if left_is_path_balance_pe_input or right_is_path_balance_pe_input:
+                            found_matching_edge = True
+                            pes_balanced += 1
+                            if left_is_path_balance_pe_input:
+                                pond_name = f"{pe}_path_balance_pond"
+                            else:
+                                pond_name = f"{pe}_path_balance_pond"
+                            pond_instance = copy.deepcopy(self.pond_tpl)
+                            pond_instance["genargs"]["ID"][1] = pond_name
+                            instances[pond_name] = pond_instance
 
-                    print(f"\033[93mINFO: Inserted pond '{pond_name}' between '{left}' and '{right}' for path balancing. Connection is PE -> Pond. \033[0m")
+                            # Found the PE input, insert pond here (pond drives PE input)
+                            connections.remove(edge)
+                            if left_is_path_balance_pe_input:
+                                connections.append([f"{pond_name}.data_out_pond_0", left])
+                                connections.append([right, f"{pond_name}.data_in_pond_0"])
+                            else:
+                                connections.append([f"{pond_name}.data_out_pond_0", right])
+                                connections.append([left, f"{pond_name}.data_in_pond_0"])
+                            print(f"\033[93mINFO: Inserted pond '{pond_name}' between '{left}' and '{right}' for path balancing. Connection is Pond -> PE. \033[0m")
 
-                elif left_is_path_balance_pe_input or right_is_path_balance_pe_input:
-                    pes_balanced += 1
-                    if left_is_path_balance_pe_input:
-                        pond_name = f"{name_to_id[left_instance_name]}_path_balance_pond"
-                    else:
-                        pond_name = f"{name_to_id[right_instance_name]}_path_balance_pond"
-                    pond_instance = copy.deepcopy(self.pond_tpl)
-                    pond_instance["genargs"]["ID"][1] = pond_name
-                    instances[pond_name] = pond_instance
+                    if found_matching_edge:
+                        break
 
-                    # Found the PE input, insert pond here (pond drives PE input)
-                    connections.remove(edge)
-                    if left_is_path_balance_pe_input:
-                        connections.append([f"{pond_name}.data_out_pond_0", left])
-                        connections.append([right, f"{pond_name}.data_in_pond_0"])
-                    else:
-                        connections.append([f"{pond_name}.data_out_pond_0", right])
-                        connections.append([left, f"{pond_name}.data_in_pond_0"])
-                    print(f"\033[93mINFO: Inserted pond '{pond_name}' between '{left}' and '{right}' for path balancing. Connection is Pond -> PE. \033[0m")
-
-                if pes_balanced >= num_balance_pes:
-                    break
+        assert pes_balanced == num_balance_pes, f"Expected to balance {num_balance_pes} PEs, but only balanced {pes_balanced} PEs."
 
         # Overwrite the JSON
         with open(json_path, "w") as f:
