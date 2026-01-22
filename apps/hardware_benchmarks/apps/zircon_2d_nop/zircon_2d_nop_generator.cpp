@@ -19,6 +19,8 @@ public:
     GeneratorParam<int32_t> myunroll_E64{"myunroll_E64", 16};
     GeneratorParam<int32_t> myunroll_E64_MB{"myunroll_E64_MB", 16};
 
+    // Facilitates tiling in the voyager flow
+    GeneratorParam<int> n_oc{"n_oc", 32};
 
     void generate() {
         /* THE ALGORITHM */

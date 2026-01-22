@@ -17,6 +17,8 @@ public:
     GeneratorParam<int> vec_width{ "vec_width", 3072 };
     GeneratorParam<int> vec_height{ "vec_height", 64 };
 
+    GeneratorParam<int> n_oc{"n_oc", 3072};
+
     // mu_i determines the input glb unrolling
     GeneratorParam<int> mu_i{ "mu_i", 32 };
 
