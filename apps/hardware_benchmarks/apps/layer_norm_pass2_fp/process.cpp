@@ -147,7 +147,34 @@ int main(int argc, char **argv) {
     processor.inputs["input.mat"] = Buffer<uint16_t>(vec_width_fake, vec_height_fake);
     processor.output = Buffer<uint16_t>(vec_width_fake, vec_height_fake);
 
-    save_halide_buffer_to_raw(pass1_output, "bin/input_host_stencil.raw");
+    auto real_input_env = getenv("USE_REAL_INPUT");
+    bool use_random_tensors = true;
+    if (real_input_env && strcmp(real_input_env, "1") == 0) {
+        use_random_tensors = false;
+    }
+
+    if (use_random_tensors) {
+        // Use random tensors
+        std::cout << "Generating random tensors" << std::endl;
+        save_halide_buffer_to_raw(input_activation, "bin/input_host_stencil.raw");
+    } else {
+
+        int ret = 0;
+        auto pass1_output_path_env = getenv("PASS1_OUTPUT_PATH");
+        std::string pass1_output_path = "/aha/Halide-to-Hardware/apps/hardware_benchmarks/apps/layer_norm_pass2_fp/bert-layer_norm_pass1_gold/layer_norm_pass1_gold.raw";
+        if (pass1_output_path_env) {
+            pass1_output_path = std::string(pass1_output_path_env);
+        }
+
+        ret = system(("cp " + pass1_output_path + " bin/input_host_stencil.raw").c_str());
+        if (ret != 0) {
+            std::cerr << "Error: Failed to copy pass1 input raw to bin folder. "
+                        "The pass1 input raw should have been produced by layer_norm_pass1 layer and saved by the user"
+                        "(system call returned " << ret << ")" << std::endl;
+            return 1;
+        }
+        std::cout << "Copying pre-existing " << pass1_output_path << " to bin/input_host_stencil.raw" << std::endl;
+    }
     save_halide_buffer_to_raw(gold_output, "bin/hw_output.raw");
 
     // Create glb bank config
