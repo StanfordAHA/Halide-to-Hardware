@@ -17,6 +17,9 @@ public:
     GeneratorParam<int> glb_i{ "glb_i", 32 };
     GeneratorParam<int> vec_width{ "vec_width", 64 };
 
+    // Fake to help aha flow run
+    GeneratorParam<int> dim0_fake{ "dim0_fake", 3072 };
+
     void generate() {
         /* THE ALGORITHM */
         // Input 1: BF16 input from 32 software GLB IOs stored in 4 GLB Tiles

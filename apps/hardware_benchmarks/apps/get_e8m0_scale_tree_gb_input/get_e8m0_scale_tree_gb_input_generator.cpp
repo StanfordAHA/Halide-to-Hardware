@@ -24,6 +24,9 @@ public:
     // glb_o determines the output glb unrolling
     GeneratorParam<int> glb_o{ "glb_o", 1 };
 
+    // Fake to help aha flow run
+    GeneratorParam<int> dim0_fake{ "dim0_fake", 3072 };
+
     // tree_stages determines the number of stages in the reduction tree: log2(glb_i)
     GeneratorParam<int> tree_stages{ "tree_stages", 5 };
 
