@@ -9,7 +9,7 @@ using namespace Halide::ConciseCasts;
 
 
 auto DEQUANT_SCALE = getenv("DEQUANT_SCALE");
-const float dequant_scale = DEQUANT_SCALE ? atof(DEQUANT_SCALE) : 0.5f;
+const float dequant_scale = DEQUANT_SCALE ? atof(DEQUANT_SCALE) : 0.00006341934204101562f;
 
 // Dequantize (fpmul)
 class Dequantize : public Halide::Generator<Dequantize> {

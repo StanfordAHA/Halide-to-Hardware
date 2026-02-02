@@ -73,7 +73,7 @@ int main( int argc, char **argv ) {
 
 
   auto DEQUANT_SCALE = getenv("DEQUANT_SCALE");
-  const float dequant_scale = DEQUANT_SCALE ? atof(DEQUANT_SCALE) : 0.5f;
+  const float dequant_scale = DEQUANT_SCALE ? atof(DEQUANT_SCALE) : 0.00006341934204101562f;
   printf("Using dequant_scale of %f\n", dequant_scale);
 
   processor.input   = Buffer<uint16_t>(n_oc, out_img, out_img);
