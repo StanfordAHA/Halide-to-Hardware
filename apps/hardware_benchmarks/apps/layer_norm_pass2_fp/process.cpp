@@ -156,7 +156,7 @@ int main(int argc, char **argv) {
     if (use_random_tensors) {
         // Use random tensors
         std::cout << "Generating random tensors" << std::endl;
-        save_halide_buffer_to_raw(input_activation, "bin/input_host_stencil.raw");
+        save_halide_buffer_to_raw(pass1_output, "bin/input_host_stencil.raw");
     } else {
 
         int ret = 0;
