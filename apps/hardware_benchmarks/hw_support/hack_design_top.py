@@ -7219,10 +7219,9 @@ class SelectedDesignHacker:
 
         # For each input IO, create a MEM tile and rewire connections
         for idx, io_name in enumerate(input_io_instances):
-            mem_name = f"static_cycle_dma_emulator_mem_{idx}"
-
-            if mem_name not in instances:
-                instances[mem_name] = copy.deepcopy(self.mem_tpl)
+            # Skip indices 0 and 3
+            if idx in [0, 3]:
+                continue
 
             io_out_port = f"{io_name}.out"
             connections_to_rewire = []
@@ -7244,12 +7243,33 @@ class SelectedDesignHacker:
                 elif pair2 in connections:
                     connections.remove(pair2)
 
-            # Add new connections: IO.out -> MEM.data_in_0
-            add_conn_once(io_out_port, f"{mem_name}.data_in_0")
+            if idx == 2:
+                # For input IO index 2, insert a shift FIFO after it
+                shift_fifo_name = f"shift_fifo_io_{idx}"
 
-            # Rewire all original sinks to MEM.data_out_0
-            for src, dst in connections_to_rewire:
-                add_conn_once(f"{mem_name}.data_out_0", dst)
+                if shift_fifo_name not in instances:
+                    instances[shift_fifo_name] = copy.deepcopy(self.shift_fifo_tpl)
+
+                # Add new connections: IO.out -> shift_fifo.in, shift_fifo.out -> original sinks
+                add_conn_once(io_out_port, f"{shift_fifo_name}.in")
+
+                # Rewire all original sinks to shift_fifo.out
+                for src, dst in connections_to_rewire:
+                    add_conn_once(f"{shift_fifo_name}.out", dst)
+
+            elif idx == 1:
+                # For input IO index 1, create a MEM tile and rewire connections
+                mem_name = f"static_cycle_dma_emulator_mem_{idx}"
+
+                if mem_name not in instances:
+                    instances[mem_name] = copy.deepcopy(self.mem_tpl)
+
+                # Add new connections: IO.out -> MEM.data_in_0
+                add_conn_once(io_out_port, f"{mem_name}.data_in_0")
+
+                # Rewire all original sinks to MEM.data_out_0
+                for src, dst in connections_to_rewire:
+                    add_conn_once(f"{mem_name}.data_out_0", dst)
 
         # Modify metadata for all io16in_hw_input_stencil input IOs
         for inst_name, inst_config in instances.items():
@@ -7271,7 +7291,32 @@ class SelectedDesignHacker:
                 instances[inst_name]["metadata"]["in2glb_0"]["write_data_starting_addr"] = [0]
                 instances[inst_name]["metadata"]["in2glb_0"]["write_data_stride"] = [1, 1]
 
-        # Handle broadcasting: duplicate MEM tiles if their output ports broadcast to multiple sinks
+        # Parse design.place file to get node ID to name mapping (needed for r6 handling)
+        design_place_path = "/aha/Halide-to-Hardware/apps/hardware_benchmarks/apps/camera_pipeline_2x2_dense_rv/bin_almost_right_raw_violence/design.place"
+        node_id_to_name = {}
+        if os.path.exists(design_place_path):
+            with open(design_place_path, "r") as f:
+                for line in f:
+                    line = line.strip()
+                    if not line or line.startswith("Block Name") or line.startswith("---"):
+                        continue
+                    parts = line.split()
+                    if len(parts) >= 4 and parts[-1].startswith("#"):
+                        node_name = parts[0]
+                        node_id = parts[-1][1:]  # Remove the # prefix
+                        # Remove @T* suffix if present (e.g., @T2_EAST)
+                        if "@" in node_name:
+                            node_name = node_name.split("@")[0]
+                        node_id_to_name[node_id] = node_name
+
+        # Helper function to get node name from node ID or port string
+        def get_node_name_from_port(port_str):
+            """Extract node name from a port string like 'node_name.port' or just 'node_name'"""
+            if "." in port_str:
+                return port_str.split(".")[0]
+            return port_str
+
+        # Handle broadcasting: prefer using available MEM output ports before duplicating
         target_mem_names = [
             "g_gb_stencil$ub_g_gb_stencil_BANK_0_garnet",
             "g_gr_stencil$ub_g_gr_stencil_BANK_0_garnet",
@@ -7295,62 +7340,253 @@ class SelectedDesignHacker:
             if mem_name not in instances:
                 continue
 
-            mem_output_port = f"{mem_name}.data_out_0"
+            mem_output_ports = [f"{mem_name}.data_out_0", f"{mem_name}.data_out_1"]
 
-            # Find all sinks connected to this MEM's data_out_0
-            sinks = []
+            # Find all sinks connected to either output port
+            sinks_per_port = {port: [] for port in mem_output_ports}
             for conn in connections:
                 left, right = conn[0], conn[1]
-                if left == mem_output_port:
-                    sinks.append(right)
-                elif right == mem_output_port:
-                    sinks.append(left)
+                for port in mem_output_ports:
+                    if left == port:
+                        sinks_per_port[port].append(right)
+                    elif right == port:
+                        sinks_per_port[port].append(left)
 
-            # If there's broadcasting (multiple sinks), duplicate the MEM for each sink
-            if len(sinks) > 1:
-                # Find all input connections to the original MEM
-                mem_input_connections = []
-                mem_clk_en_connections = []
-                for conn in connections:
-                    left, right = conn[0], conn[1]
-                    if left == f"{mem_name}.data_in_0":
-                        mem_input_connections.append((right, left))  # (source, mem_input_port)
-                    elif right == f"{mem_name}.data_in_0":
-                        mem_input_connections.append((left, right))  # (source, mem_input_port)
-                    elif left == f"{mem_name}.clk_en":
-                        mem_clk_en_connections.append((right, left))  # (source, mem_clk_en_port)
-                    elif right == f"{mem_name}.clk_en":
-                        mem_clk_en_connections.append((left, right))  # (source, mem_clk_en_port)
+            # Stable, de-duplicated sink list: data_out_0 sinks first, then data_out_1 sinks
+            seen = set()
+            all_sinks = []
+            for port in mem_output_ports:
+                for s in sinks_per_port[port]:
+                    if s not in seen:
+                        seen.add(s)
+                        all_sinks.append(s)
 
-                # Keep the first sink connected to the original MEM, remove others
-                # Create a duplicate MEM for each remaining sink
-                for sink_idx, sink_port in enumerate(sinks):
-                    if sink_idx == 0:
-                        # Keep original MEM connected to first sink - no action needed
+            # Special handling: rewire intermediate node's sinks directly to MEM
+            # Track sinks that originally came from intermediate nodes (r6, r48, etc.)
+            intermediate_node_sinks = {}  # Maps node_id -> list of sinks
+            intermediate_node_marks = {}  # Maps node_id -> mark suffix (e.g., "r6", "r48")
+
+            # Handle r6 for g_gb_stencil MEM
+            if mem_name == "g_gb_stencil$ub_g_gb_stencil_BANK_0_garnet" and "r6" in node_id_to_name:
+                intermediate_node_marks["r6"] = "r6"
+
+            # Handle r48 for r_r_stencil MEM
+            if mem_name == "r_r_stencil$ub_r_r_stencil_BANK_0_garnet" and "r48" in node_id_to_name:
+                intermediate_node_marks["r48"] = "r48"
+
+            # Process each intermediate node
+            for node_id, mark_suffix in intermediate_node_marks.items():
+                node_name = node_id_to_name[node_id]
+                node_port = None
+
+                # Find the node in the sink list and get its port
+                for sink_port in all_sinks:
+                    sink_node_name = get_node_name_from_port(sink_port)
+                    if sink_node_name == node_name:
+                        node_port = sink_port
+                        break
+
+                if node_port:
+                    # Find all sinks of this node (node's output connections)
+                    node_output_ports = []
+                    node_sinks = []
+                    for conn in connections:
+                        left, right = conn[0], conn[1]
+                        # Check if node is the source
+                        if left.startswith(f"{node_name}."):
+                            # Try to determine if this is an output port
+                            port_suffix = left.split(".", 1)[1]
+                            if port_suffix in ["out", "O0", "data_out_0", "data_out_1"]:
+                                if left not in node_output_ports:
+                                    node_output_ports.append(left)
+                                if right not in node_sinks:
+                                    node_sinks.append(right)
+                        elif right.startswith(f"{node_name}."):
+                            port_suffix = right.split(".", 1)[1]
+                            if port_suffix in ["out", "O0", "data_out_0", "data_out_1"]:
+                                if right not in node_output_ports:
+                                    node_output_ports.append(right)
+                                if left not in node_sinks:
+                                    node_sinks.append(left)
+
+                    # Store the sinks for this node
+                    intermediate_node_sinks[node_id] = node_sinks
+
+                    # Remove the node from all_sinks
+                    if node_port in all_sinks:
+                        all_sinks.remove(node_port)
+
+                    # Remove connection from MEM to the node
+                    for port in mem_output_ports:
+                        remove_conn(port, node_port)
+
+                    # Remove all connections from the node to its sinks
+                    for node_out_port in node_output_ports:
+                        for node_sink in node_sinks:
+                            remove_conn(node_out_port, node_sink)
+
+                    # Add the node's sinks to all_sinks (they will be marked)
+                    all_sinks.extend(node_sinks)
+
+                    # Remove the node instance if it exists
+                    if node_name in instances:
+                        del instances[node_name]
+
+            # If no broadcasting (0 or 1 sink total), skip
+            if len(all_sinks) <= 1:
+                continue
+
+            # Gather input and clk_en connections to replicate later if needed
+            mem_input_connections = []
+            mem_clk_en_connections = []
+            for conn in connections:
+                left, right = conn[0], conn[1]
+                if left.startswith(f"{mem_name}.data_in_"):
+                    mem_input_connections.append((right, left))  # (source, mem_input_port)
+                elif right.startswith(f"{mem_name}.data_in_"):
+                    mem_input_connections.append((left, right))
+                elif left == f"{mem_name}.clk_en":
+                    mem_clk_en_connections.append((right, left))
+                elif right == f"{mem_name}.clk_en":
+                    mem_clk_en_connections.append((left, right))
+
+            # Remove all existing output connections from this mem; we will reassign
+            for port, sinks in sinks_per_port.items():
+                for sink in sinks:
+                    # Skip intermediate nodes if we already removed them
+                    skip = False
+                    for node_id in intermediate_node_marks.keys():
+                        node_name = node_id_to_name[node_id]
+                        if sink.startswith(f"{node_name}."):
+                            skip = True
+                            break
+                    if skip:
                         continue
+                    remove_conn(port, sink)
 
-                    # Remove the original connection from original MEM to this sink
-                    remove_conn(mem_output_port, sink_port)
+            # Use both output ports for each MEM instance (original or duplicate) before duplicating again
+            dup_idx = 1
+            # Separate counters for marked duplicates (r6, r48, etc.)
+            marked_dup_idx = {node_id: 1 for node_id in intermediate_node_marks.keys()}
+            current_mem = mem_name
+            remaining_ports = [f"{current_mem}.data_out_0", f"{current_mem}.data_out_1"]
 
-                    # Create duplicate MEM instance
-                    duplicate_mem_name = f"{mem_name}_dup_{sink_idx}"
-                    if duplicate_mem_name not in instances:
-                        instances[duplicate_mem_name] = copy.deepcopy(instances[mem_name])
+            for sink_port in all_sinks:
+                # Check if this sink is from any intermediate node
+                sink_node_id = None
+                for node_id, node_sinks in intermediate_node_sinks.items():
+                    if sink_port in node_sinks:
+                        sink_node_id = node_id
+                        break
 
-                    duplicate_output_port = f"{duplicate_mem_name}.data_out_0"
+                # If current instance still has a free port, use it
+                if remaining_ports:
+                    out_port = remaining_ports.pop(0)
+                    add_conn_once(out_port, sink_port)
+                    continue
 
-                    # Add connection from duplicate MEM to this sink
-                    add_conn_once(duplicate_output_port, sink_port)
+                # Otherwise create a new duplicate and reset remaining_ports
+                if sink_node_id and sink_node_id in intermediate_node_marks:
+                    # For marked sinks, add the mark suffix to the duplicate name
+                    mark_suffix = intermediate_node_marks[sink_node_id]
+                    duplicate_mem_name = f"{mem_name}_{mark_suffix}_dup_{marked_dup_idx[sink_node_id]}"
+                    marked_dup_idx[sink_node_id] += 1
+                else:
+                    duplicate_mem_name = f"{mem_name}_dup_{dup_idx}"
+                    dup_idx += 1
 
-                    # Duplicate all input connections for the duplicate MEM
-                    for src, mem_port in mem_input_connections:
-                        duplicate_mem_port = mem_port.replace(mem_name, duplicate_mem_name)
-                        add_conn_once(src, duplicate_mem_port)
+                if duplicate_mem_name not in instances:
+                    instances[duplicate_mem_name] = copy.deepcopy(instances[mem_name])
 
-                    # Duplicate all clk_en connections for the duplicate MEM
-                    for src, mem_port in mem_clk_en_connections:
-                        duplicate_mem_port = mem_port.replace(mem_name, duplicate_mem_name)
-                        add_conn_once(src, duplicate_mem_port)
+                # Wire duplicate inputs/clk_en
+                for src, mem_port in mem_input_connections:
+                    duplicate_mem_port = mem_port.replace(mem_name, duplicate_mem_name)
+                    add_conn_once(src, duplicate_mem_port)
+                for src, mem_port in mem_clk_en_connections:
+                    duplicate_mem_port = mem_port.replace(mem_name, duplicate_mem_name)
+                    add_conn_once(src, duplicate_mem_port)
+
+                # Switch to the new instance and use its first free port
+                current_mem = duplicate_mem_name
+                remaining_ports = [f"{current_mem}.data_out_0", f"{current_mem}.data_out_1"]
+                out_port = remaining_ports.pop(0)
+                add_conn_once(out_port, sink_port)
+
+        # Insert dummy max nop PEs for specific paths
+        def insert_dummy_max_nop_between_nodes(source_id, sink_id, pe_name_suffix):
+            """Insert a dummy max nop PE between source node and sink node identified by their node IDs"""
+            # Convert node IDs to node names
+            if source_id not in node_id_to_name:
+                raise ValueError(f"[ERROR] Source node ID '{source_id}' not found in design.place, skipping dummy max nop insertion")
+            if sink_id not in node_id_to_name:
+                raise ValueError(f"[ERROR] Sink node ID '{sink_id}' not found in design.place, skipping dummy max nop insertion")
+
+            source_name = node_id_to_name[source_id]
+            sink_name = node_id_to_name[sink_id]
+
+            # Find the connection between source and sink to determine ports
+            source_output_port = None
+            sink_input_port = None
+
+            for conn in connections:
+                left, right = conn[0], conn[1]
+                # Check if left side is source and right side is sink
+                if left.startswith(f"{source_name}.") and right.startswith(f"{sink_name}."):
+                    source_output_port = left
+                    sink_input_port = right
+                    break
+                # Check if right side is source and left side is sink
+                elif right.startswith(f"{source_name}.") and left.startswith(f"{sink_name}."):
+                    source_output_port = right
+                    sink_input_port = left
+                    break
+
+            if not source_output_port or not sink_input_port:
+                raise ValueError(f"[ERROR] Connection between '{source_name}' and '{sink_name}' not found, skipping dummy max nop insertion")
+
+            # Create dummy max nop PE and constant
+            dummy_pe_name = f"dummy_max_nop_pe_{pe_name_suffix}"
+            dummy_const_name = f"dummy_max_nop_const_{pe_name_suffix}"
+
+            # Create const instruction instance
+            if dummy_const_name not in instances:
+                instances[dummy_const_name] = {
+                    "genref": "coreir.const",
+                    "genargs": {"width": ["Int", 84]},
+                    "modargs": {"value": [["BitVector", 84], self.DUMMY_MAX_NOP_INSTR]},
+                }
+
+            # Create PE instance
+            if dummy_pe_name not in instances:
+                instances[dummy_pe_name] = copy.deepcopy(self.pe_tpl)
+
+            # Remove the direct connection
+            remove_conn(source_output_port, sink_input_port)
+
+            # Add new connections: src -> dummy_pe.data0, dummy_pe.inst -> const.out, dummy_pe.O0 -> dst
+            add_conn_once(source_output_port, f"{dummy_pe_name}.data0")
+            add_conn_once(f"{dummy_pe_name}.inst", f"{dummy_const_name}.out")
+            add_conn_once(f"{dummy_pe_name}.O0", sink_input_port)
+
+            print(f"[INFO] Inserted dummy_max_nop PE '{dummy_pe_name}' between '{source_output_port}' and '{sink_input_port}'")
+
+        # Insert dummy max nop PEs for the specified paths
+        dummy_max_nop_paths = [
+            ("p133", "p0", "p133_to_p0"),
+            ("r0", "p0", "r0_to_p0"),
+            ("p154", "p174", "p154_to_p174"),
+            ("r9", "p174", "r9_to_p174"),
+            ("p137", "p173", "p137_to_p173"),
+            ("r47", "p173", "r47_to_p173"),
+            ("p129", "p155", "p129_to_p155"),
+            ("r7", "p155", "r7_to_p155"),
+            ("p129", "p151", "p129_to_p151"),
+            ("r7", "p151", "r7_to_p151"),
+            ("r7", "p175", "r7_to_p175"),
+        ]
+
+        for source_id, sink_id, pe_name_suffix in dummy_max_nop_paths:
+            insert_dummy_max_nop_between_nodes(source_id, sink_id, pe_name_suffix)
 
         # Hack design_meta_halide.json: assert only one input and set shape to padded row for each GLB
         design_meta_halide_path = os.path.join(bin_path, "design_meta_halide.json")
@@ -7365,6 +7601,530 @@ class SelectedDesignHacker:
 
             with open(design_meta_halide_path, "w") as f:
                 f.write(pretty_format_json(design_meta_halide))
+
+        # Adjust MEM connections for camera_pipeline_2x2_dense_rv_rv
+        # Map node IDs to actual names (from design.place):
+        # m28 = hw_input_global_wrapper_global_wrapper_stencil$ub_hw_input_global_wrapper_global_wrapper_stencil_bank_8_garnet
+        # m24 = hw_input_global_wrapper_global_wrapper_stencil$ub_hw_input_global_wrapper_global_wrapper_stencil_BANK_4_garnet
+        # m26 = hw_input_global_wrapper_global_wrapper_stencil$ub_hw_input_global_wrapper_global_wrapper_stencil_BANK_6_garnet
+        # m22 = hw_input_global_wrapper_global_wrapper_stencil$ub_hw_input_global_wrapper_global_wrapper_stencil_BANK_2_garnet
+        # r11 = hw_input_global_wrapper_global_wrapper_stencil$d_reg__U23$reg0
+        # r12 = hw_input_global_wrapper_global_wrapper_stencil$d_reg__U24$reg0
+        # r13 = hw_input_global_wrapper_global_wrapper_stencil$d_reg__U25$reg0
+        # r14 = hw_input_global_wrapper_global_wrapper_stencil$d_reg__U26$reg0
+        # r15 = hw_input_global_wrapper_global_wrapper_stencil$d_reg__U27$reg0
+        # r16 = hw_input_global_wrapper_global_wrapper_stencil$d_reg__U28$reg0
+        # r17 = hw_input_global_wrapper_global_wrapper_stencil$d_reg__U29$reg0
+        # r18 = hw_input_global_wrapper_global_wrapper_stencil$d_reg__U30$reg0
+        # r19 = hw_input_global_wrapper_global_wrapper_stencil$d_reg__U31$reg0
+        # r20 = hw_input_global_wrapper_global_wrapper_stencil$d_reg__U32$reg0
+        # r21 = hw_input_global_wrapper_global_wrapper_stencil$d_reg__U33$reg0
+        # r22 = hw_input_global_wrapper_global_wrapper_stencil$d_reg__U34$reg0
+        # p132 = op_hcompute_denoised_1_stencil_1$inner_compute$umax_i4067_i2774
+        # p130 = op_hcompute_denoised_1_stencil_1$inner_compute$umax_i4061_i2774
+        # p133 = op_hcompute_denoised_1_stencil_1$inner_compute$umin_i4070_i2814
+        # p138 = op_hcompute_denoised_1_stencil_3$inner_compute$umax_i4097_i2774
+        # p141 = op_hcompute_denoised_1_stencil_3$inner_compute$umin_i4106_i2814
+        # p126 = op_hcompute_denoised_1_stencil$inner_compute$umax_i4043_i2774
+        # p129 = op_hcompute_denoised_1_stencil$inner_compute$umin_i4052_i2814
+        # p134 = op_hcompute_denoised_1_stencil_2$inner_compute$umax_i4079_i2774
+        # p137 = op_hcompute_denoised_1_stencil_2$inner_compute$umin_i4088_i2814
+
+        # Node name mappings
+        m28 = "hw_input_global_wrapper_global_wrapper_stencil$ub_hw_input_global_wrapper_global_wrapper_stencil_bank_8_garnet"
+        m24 = "hw_input_global_wrapper_global_wrapper_stencil$ub_hw_input_global_wrapper_global_wrapper_stencil_BANK_4_garnet"
+        m26 = "hw_input_global_wrapper_global_wrapper_stencil$ub_hw_input_global_wrapper_global_wrapper_stencil_BANK_6_garnet"
+        m22 = "hw_input_global_wrapper_global_wrapper_stencil$ub_hw_input_global_wrapper_global_wrapper_stencil_BANK_2_garnet"
+
+        r11 = "hw_input_global_wrapper_global_wrapper_stencil$d_reg__U23$reg0"
+        r12 = "hw_input_global_wrapper_global_wrapper_stencil$d_reg__U24$reg0"
+        r13 = "hw_input_global_wrapper_global_wrapper_stencil$d_reg__U25$reg0"
+        r14 = "hw_input_global_wrapper_global_wrapper_stencil$d_reg__U26$reg0"
+        r15 = "hw_input_global_wrapper_global_wrapper_stencil$d_reg__U27$reg0"
+        r16 = "hw_input_global_wrapper_global_wrapper_stencil$d_reg__U28$reg0"
+        r17 = "hw_input_global_wrapper_global_wrapper_stencil$d_reg__U29$reg0"
+        r18 = "hw_input_global_wrapper_global_wrapper_stencil$d_reg__U30$reg0"
+        r19 = "hw_input_global_wrapper_global_wrapper_stencil$d_reg__U31$reg0"
+        r20 = "hw_input_global_wrapper_global_wrapper_stencil$d_reg__U32$reg0"
+        r21 = "hw_input_global_wrapper_global_wrapper_stencil$d_reg__U33$reg0"
+        r22 = "hw_input_global_wrapper_global_wrapper_stencil$d_reg__U34$reg0"
+
+        p132 = "op_hcompute_denoised_1_stencil_1$inner_compute$umax_i4067_i2774"
+        p130 = "op_hcompute_denoised_1_stencil_1$inner_compute$umax_i4061_i2774"
+        p133 = "op_hcompute_denoised_1_stencil_1$inner_compute$umin_i4070_i2814"
+        p138 = "op_hcompute_denoised_1_stencil_3$inner_compute$umax_i4097_i2774"
+        p141 = "op_hcompute_denoised_1_stencil_3$inner_compute$umin_i4106_i2814"
+        p126 = "op_hcompute_denoised_1_stencil$inner_compute$umax_i4043_i2774"
+        p129 = "op_hcompute_denoised_1_stencil$inner_compute$umin_i4052_i2814"
+        p134 = "op_hcompute_denoised_1_stencil_2$inner_compute$umax_i4079_i2774"
+        p137 = "op_hcompute_denoised_1_stencil_2$inner_compute$umin_i4088_i2814"
+
+        # Helper function to remove connections
+        def remove_conn_by_pattern(src_pattern, dst_pattern):
+            """Remove connections matching src_pattern -> dst_pattern or dst_pattern -> src_pattern"""
+            to_remove = []
+            for conn in connections:
+                left, right = conn[0], conn[1]
+                if (src_pattern in left and dst_pattern in right) or (src_pattern in right and dst_pattern in left):
+                    to_remove.append(conn)
+            for conn in to_remove:
+                if conn in connections:
+                    connections.remove(conn)
+
+        # Helper function to remove all connections involving a node
+        def remove_all_conns(node_name):
+            """Remove all connections involving node_name"""
+            to_remove = []
+            for conn in connections:
+                left, right = conn[0], conn[1]
+                if node_name in left or node_name in right:
+                    to_remove.append(conn)
+            for conn in to_remove:
+                if conn in connections:
+                    connections.remove(conn)
+
+        # Helper function to create shift_fifo_mem instance
+        def create_shift_fifo_mem(mem_name):
+            """Create a shift_fifo_mem instance"""
+            if mem_name not in instances:
+                instances[mem_name] = copy.deepcopy(self.mem_tpl)
+
+        # 1. For m28: Replace r15 and r16 with shift_fifo_mem
+        shift_fifo_mem_m28 = "hw_input_global_wrapper_global_wrapper_stencil$shift_fifo_mem_m28"
+        create_shift_fifo_mem(shift_fifo_mem_m28)
+
+        # Remove old connections: m28.data_out_0 -> r15.in, r15.out -> p133, r15.out -> r16.in, r16.out -> p130
+        remove_conn_by_pattern(f"{m28}.data_out_0", f"{r15}.in")
+        remove_conn_by_pattern(f"{r15}.out", f"{p133}.data1")
+        remove_conn_by_pattern(f"{r15}.out", f"{r16}.in")
+        remove_conn_by_pattern(f"{r16}.out", f"{p130}.data2")
+        # Also remove m28.data_out_0 -> p130 if it exists
+        remove_conn_by_pattern(f"{m28}.data_out_0", f"{p130}.data2")
+
+        # Add new connections: m28.data_out_0 -> shift_fifo_mem.data_in_0
+        add_conn_once(f"{m28}.data_out_0", f"{shift_fifo_mem_m28}.data_in_0")
+        # shift_fifo_mem.data_out_1 -> p133.data1
+        add_conn_once(f"{shift_fifo_mem_m28}.data_out_1", f"{p133}.data1")
+        # shift_fifo_mem.data_out_0 -> p130.data2
+        add_conn_once(f"{shift_fifo_mem_m28}.data_out_0", f"{p130}.data2")
+
+        # Remove all connections involving r15 and r16
+        remove_all_conns(r15)
+        remove_all_conns(r16)
+        # Remove r15 and r16 instances
+        if r15 in instances:
+            del instances[r15]
+        if r16 in instances:
+            del instances[r16]
+
+        # 3. For m24: Replace r19 and r20 with shift_fifo_mem
+        # Keep m24.data_out_0->p138 (direct connection), but replace m24.data_out_0->r19 with shift_fifo_mem
+        shift_fifo_mem_m24 = "hw_input_global_wrapper_global_wrapper_stencil$shift_fifo_mem_m24"
+        create_shift_fifo_mem(shift_fifo_mem_m24)
+
+        # Remove old connections: m24.data_out_0 -> r19.in, r19.out -> p138, r19.out -> r20.in, r20.out -> p141
+        remove_conn_by_pattern(f"{m24}.data_out_0", f"{r19}.in")
+        remove_conn_by_pattern(f"{r19}.out", f"{p138}.data2")
+        remove_conn_by_pattern(f"{r19}.out", f"{r20}.in")
+        remove_conn_by_pattern(f"{r20}.out", f"{p141}.data1")
+
+        # Add new connections: m24.data_out_0 -> shift_fifo_mem.data_in_0
+        add_conn_once(f"{m24}.data_out_0", f"{shift_fifo_mem_m24}.data_in_0")
+        # shift_fifo_mem.data_out_0 -> p138.data2 (keep existing m24->p138 connection too)
+        add_conn_once(f"{shift_fifo_mem_m24}.data_out_0", f"{p138}.data2")
+        # shift_fifo_mem.data_out_1 -> p141.data1
+        add_conn_once(f"{shift_fifo_mem_m24}.data_out_1", f"{p141}.data1")
+
+        # Remove all connections involving r19 and r20
+        remove_all_conns(r19)
+        remove_all_conns(r20)
+        # Remove r19 and r20 instances
+        if r19 in instances:
+            del instances[r19]
+        if r20 in instances:
+            del instances[r20]
+
+        # 4. For m26: Replace r21 and r22 with shift_fifo_mem
+        # Keep m26.data_out_0->p126 (direct connection), but replace m26.data_out_0->r21 with shift_fifo_mem
+        shift_fifo_mem_m26 = "hw_input_global_wrapper_global_wrapper_stencil$shift_fifo_mem_m26"
+        create_shift_fifo_mem(shift_fifo_mem_m26)
+
+        # Remove old connections: m26.data_out_0 -> r21.in, r21.out -> p126, r21.out -> r22.in, r22.out -> p129
+        remove_conn_by_pattern(f"{m26}.data_out_0", f"{r21}.in")
+        remove_conn_by_pattern(f"{r21}.out", f"{p126}.data2")
+        remove_conn_by_pattern(f"{r21}.out", f"{r22}.in")
+        remove_conn_by_pattern(f"{r22}.out", f"{p129}.data1")
+
+        # Add new connections: m26.data_out_0 -> shift_fifo_mem.data_in_0
+        add_conn_once(f"{m26}.data_out_0", f"{shift_fifo_mem_m26}.data_in_0")
+        # shift_fifo_mem.data_out_0 -> p126.data2 (keep existing m26->p126 connection too)
+        add_conn_once(f"{shift_fifo_mem_m26}.data_out_0", f"{p126}.data2")
+        # shift_fifo_mem.data_out_1 -> p129.data1
+        add_conn_once(f"{shift_fifo_mem_m26}.data_out_1", f"{p129}.data1")
+
+        # Remove all connections involving r21 and r22
+        remove_all_conns(r21)
+        remove_all_conns(r22)
+        # Remove r21 and r22 instances
+        if r21 in instances:
+            del instances[r21]
+        if r22 in instances:
+            del instances[r22]
+
+        # 5. For m22: Replace r17 and r18 with shift_fifo_mem
+        # Keep m22.data_out_0->p134 (direct connection), but replace m22.data_out_0->r17 with shift_fifo_mem
+        shift_fifo_mem_m22 = "hw_input_global_wrapper_global_wrapper_stencil$shift_fifo_mem_m22"
+        create_shift_fifo_mem(shift_fifo_mem_m22)
+
+        # Remove old connections: m22.data_out_0 -> r17.in, r17.out -> p134, r17.out -> r18.in, r18.out -> p137
+        remove_conn_by_pattern(f"{m22}.data_out_0", f"{r17}.in")
+        remove_conn_by_pattern(f"{r17}.out", f"{p134}.data2")
+        remove_conn_by_pattern(f"{r17}.out", f"{r18}.in")
+        remove_conn_by_pattern(f"{r18}.out", f"{p137}.data1")
+
+        # Add new connections: m22.data_out_0 -> shift_fifo_mem.data_in_0
+        add_conn_once(f"{m22}.data_out_0", f"{shift_fifo_mem_m22}.data_in_0")
+        # shift_fifo_mem.data_out_0 -> p134.data2 (keep existing m22->p134 connection too)
+        add_conn_once(f"{shift_fifo_mem_m22}.data_out_0", f"{p134}.data2")
+        # shift_fifo_mem.data_out_1 -> p137.data1
+        add_conn_once(f"{shift_fifo_mem_m22}.data_out_1", f"{p137}.data1")
+
+        # Remove all connections involving r17 and r18
+        remove_all_conns(r17)
+        remove_all_conns(r18)
+        # Remove r17 and r18 instances
+        if r17 in instances:
+            del instances[r17]
+        if r18 in instances:
+            del instances[r18]
+
+        # Insert dummy NOP PEs into direct connections: m28->p130, m24->p138, m26->p126, m22->p134
+        # Helper function to create dummy NOP PE and insert it into a connection path
+        def insert_dummy_nop_pe(src_port, dst_port, pe_name_suffix):
+            """Insert a dummy NOP PE between src_port and dst_port"""
+            dummy_pe_name = f"hw_input_global_wrapper_global_wrapper_stencil$dummy_nop_pe_{pe_name_suffix}"
+            dummy_const_name = f"hw_input_global_wrapper_global_wrapper_stencil$dummy_nop_const_{pe_name_suffix}"
+
+            # Create const instruction instance
+            if dummy_const_name not in instances:
+                instances[dummy_const_name] = {
+                    "genref": "coreir.const",
+                    "genargs": {"width": ["Int", 84]},
+                    "modargs": {"value": [["BitVector", 84], self.DUMMY_MAX_NOP_INSTR]},
+                }
+
+            # Create PE instance
+            if dummy_pe_name not in instances:
+                instances[dummy_pe_name] = copy.deepcopy(self.pe_tpl)
+
+            # Remove the direct connection
+            remove_conn_by_pattern(src_port, dst_port)
+
+            # Add new connections: src -> dummy_pe.data0, dummy_pe.inst -> const.out, dummy_pe.O0 -> dst
+            add_conn_once(src_port, f"{dummy_pe_name}.data0")
+            add_conn_once(f"{dummy_pe_name}.inst", f"{dummy_const_name}.out")
+            add_conn_once(f"{dummy_pe_name}.O0", dst_port)
+
+        # Insert dummy NOP PEs for direct connections between original memory sources and PE ports
+        # m28 -> p130: m28.data_out_0 -> p130.data1
+        insert_dummy_nop_pe(
+            f"{m28}.data_out_0",
+            f"{p130}.data1",
+            "m28_to_p130"
+        )
+
+        # m24 -> p138: m24.data_out_0 -> p138.data1
+        insert_dummy_nop_pe(
+            f"{m24}.data_out_0",
+            f"{p138}.data1",
+            "m24_to_p138"
+        )
+
+        # m26 -> p126: m26.data_out_0 -> p126.data1
+        insert_dummy_nop_pe(
+            f"{m26}.data_out_0",
+            f"{p126}.data1",
+            "m26_to_p126"
+        )
+
+        # m22 -> p134: m22.data_out_0 -> p134.data1
+        insert_dummy_nop_pe(
+            f"{m22}.data_out_0",
+            f"{p134}.data1",
+            "m22_to_p134"
+        )
+
+        # Insert MEM instances after shift fifo registers r11, r12, r13, r14
+        # These registers connect to umax PEs, so we insert input_buffer_mem between shift_fifo and sink PE
+        # r11 -> op_hcompute_denoised_1_stencil$inner_compute$umax_i4049_i2774
+        # r12 -> op_hcompute_denoised_1_stencil_1$inner_compute$umax_i4067_i2774
+        # r13 -> op_hcompute_denoised_1_stencil_2$inner_compute$umax_i4085_i2774
+        # r14 -> op_hcompute_denoised_1_stencil_3$inner_compute$umax_i4103_i2774
+
+        def insert_mem_after_shift_fifo(shift_fifo_reg, sink_pe_name, mem_suffix):
+            """Insert MEM instance after shift_fifo register and before sink PE"""
+            mem_name = f"hw_input_global_wrapper_global_wrapper_stencil$input_buffer_mem_for_umax_{mem_suffix}"
+
+            # Create MEM instance
+            if mem_name not in instances:
+                instances[mem_name] = copy.deepcopy(self.mem_tpl)
+
+            # Remove the direct connection: shift_fifo.out -> sink_pe.data2
+            remove_conn_by_pattern(f"{shift_fifo_reg}.out", f"{sink_pe_name}.data2")
+
+            # Add new connections: shift_fifo.out -> mem.data_in_0, mem.data_out_0 -> sink_pe.data2
+            add_conn_once(f"{shift_fifo_reg}.out", f"{mem_name}.data_in_0")
+            add_conn_once(f"{mem_name}.data_out_0", f"{sink_pe_name}.data2")
+
+        # Insert MEMs for r11, r12, r13, r14
+        insert_mem_after_shift_fifo(
+            r11,
+            "op_hcompute_denoised_1_stencil$inner_compute$umax_i4049_i2774",
+            "i4049"
+        )
+        insert_mem_after_shift_fifo(
+            r12,
+            "op_hcompute_denoised_1_stencil_1$inner_compute$umax_i4067_i2774",
+            "i4067"
+        )
+        insert_mem_after_shift_fifo(
+            r13,
+            "op_hcompute_denoised_1_stencil_2$inner_compute$umax_i4085_i2774",
+            "i4085"
+        )
+        insert_mem_after_shift_fifo(
+            r14,
+            "op_hcompute_denoised_1_stencil_3$inner_compute$umax_i4103_i2774",
+            "i4103"
+        )
+
+        # Parse design.place file to get node ID to name mapping
+        design_place_path = "/aha/Halide-to-Hardware/apps/hardware_benchmarks/apps/camera_pipeline_2x2_dense_rv/bin_almost_right_raw_violence/design.place"
+        node_id_to_name = {}
+        if os.path.exists(design_place_path):
+            with open(design_place_path, "r") as f:
+                for line in f:
+                    line = line.strip()
+                    if not line or line.startswith("Block Name") or line.startswith("---"):
+                        continue
+                    parts = line.split()
+                    if len(parts) >= 4 and parts[-1].startswith("#"):
+                        node_name = parts[0]
+                        node_id = parts[-1][1:]  # Remove the # prefix
+                        # Remove @T* suffix if present (e.g., @T2_EAST)
+                        if "@" in node_name:
+                            node_name = node_name.split("@")[0]
+                        node_id_to_name[node_id] = node_name
+
+        # Helper function to break broadcast paths by inserting MEMs
+        # num_output_ports: number of output ports each MEM has (default 2)
+        def break_broadcast_path_with_mems(source_id, sink_ids, mem_base_name, num_output_ports=2):
+            """
+            Break a broadcast path by inserting MEMs between source and sinks.
+
+            Args:
+                source_id: Node ID of the source (e.g., "p133", "r0")
+                sink_ids: List of node IDs of sinks (e.g., ["p16", "p0", "p6", "p3"])
+                mem_base_name: Base name for the MEM instances (e.g., "broadcast_mem_p133")
+                num_output_ports: Number of output ports each MEM has (default 2)
+            """
+            # Get actual node names from mapping
+            if source_id not in node_id_to_name:
+                print(f"[WARNING] Source node ID '{source_id}' not found in design.place, skipping broadcast path")
+                return
+
+            source_name = node_id_to_name[source_id]
+            sink_names = []
+            for sink_id in sink_ids:
+                if sink_id not in node_id_to_name:
+                    print(f"[WARNING] Sink node ID '{sink_id}' not found in design.place, skipping")
+                    continue
+                sink_names.append(node_id_to_name[sink_id])
+
+            if len(sink_names) <= 1:
+                return  # No broadcasting to break
+
+            # Find the source output port (could be .out, .O0, .data_out_0, etc.)
+            # First, find all connections from source to any of the sinks
+            source_output_port = None
+            for conn in connections:
+                left, right = conn[0], conn[1]
+                # Check if left side is source and right side is one of the sinks
+                if left.startswith(f"{source_name}.") and any(right.startswith(f"{sink_name}.") for sink_name in sink_names):
+                    # Extract the port from left side
+                    source_output_port = left.split(".", 1)[1]
+                    break
+                # Check if right side is source and left side is one of the sinks
+                elif right.startswith(f"{source_name}.") and any(left.startswith(f"{sink_name}.") for sink_name in sink_names):
+                    # Extract the port from right side
+                    source_output_port = right.split(".", 1)[1]
+                    break
+
+            if not source_output_port:
+                # Try common output port names
+                for port_suffix in ["out", "O0", "data_out_0"]:
+                    test_port = f"{source_name}.{port_suffix}"
+                    for conn in connections:
+                        left, right = conn[0], conn[1]
+                        if (left == test_port or right == test_port) and \
+                           any(sink_name in left or sink_name in right for sink_name in sink_names):
+                            source_output_port = port_suffix
+                            break
+                    if source_output_port:
+                        break
+
+            if not source_output_port:
+                print(f"[WARNING] Could not determine output port for source '{source_name}', skipping broadcast path")
+                return
+
+            source_port = f"{source_name}.{source_output_port}"
+
+            # Find sink input ports (could be .data0, .data1, .data2, .in, etc.)
+            sink_ports = []
+            for sink_name in sink_names:
+                sink_input_port = None
+                # First try to find exact connection
+                for conn in connections:
+                    left, right = conn[0], conn[1]
+                    if left == source_port and right.startswith(f"{sink_name}."):
+                        sink_input_port = right.split(".", 1)[1]
+                        break
+                    elif right == source_port and left.startswith(f"{sink_name}."):
+                        sink_input_port = left.split(".", 1)[1]
+                        break
+
+                if not sink_input_port:
+                    # Try common input port names
+                    for port_suffix in ["data0", "data1", "data2", "in"]:
+                        test_sink_port = f"{sink_name}.{port_suffix}"
+                        for conn in connections:
+                            left, right = conn[0], conn[1]
+                            if (left == source_port and right == test_sink_port) or \
+                               (right == source_port and left == test_sink_port):
+                                sink_input_port = port_suffix
+                                break
+                        if sink_input_port:
+                            break
+
+                if sink_input_port:
+                    sink_ports.append((sink_name, sink_input_port))
+                else:
+                    print(f"[WARNING] Could not determine input port for sink '{sink_name}', skipping")
+
+            if len(sink_ports) <= 1:
+                return  # No broadcasting to break after port detection
+
+            # Remove all existing connections from source to sinks
+            for sink_name, sink_input_port in sink_ports:
+                sink_port = f"{sink_name}.{sink_input_port}"
+                remove_conn(source_port, sink_port)
+
+            # Insert MEMs: use available output ports before duplicating
+            dup_idx = 1
+            current_mem_base = mem_base_name
+            remaining_ports = [f"data_out_{i}" for i in range(num_output_ports)]
+
+            for sink_name, sink_input_port in sink_ports:
+                sink_port = f"{sink_name}.{sink_input_port}"
+
+                # If current MEM instance still has a free port, use it
+                if remaining_ports:
+                    out_port_suffix = remaining_ports.pop(0)
+                    mem_name = current_mem_base
+                    mem_out_port = f"{mem_name}.{out_port_suffix}"
+
+                    # Create MEM instance if it doesn't exist
+                    if mem_name not in instances:
+                        instances[mem_name] = copy.deepcopy(self.mem_tpl)
+
+                    # Connect: source -> mem.data_in_0, mem.output_port -> sink
+                    add_conn_once(source_port, f"{mem_name}.data_in_0")
+                    add_conn_once(mem_out_port, sink_port)
+                    continue
+
+                # Otherwise create a new duplicate MEM and reset remaining_ports
+                duplicate_mem_name = f"{mem_base_name}_dup_{dup_idx}"
+                dup_idx += 1
+                if duplicate_mem_name not in instances:
+                    instances[duplicate_mem_name] = copy.deepcopy(self.mem_tpl)
+
+                # Wire duplicate input (connect to same source)
+                add_conn_once(source_port, f"{duplicate_mem_name}.data_in_0")
+
+                # Switch to the new instance and use its first free port
+                current_mem_base = duplicate_mem_name
+                remaining_ports = [f"data_out_{i}" for i in range(num_output_ports)]
+                out_port_suffix = remaining_ports.pop(0)
+                mem_out_port = f"{duplicate_mem_name}.{out_port_suffix}"
+                add_conn_once(mem_out_port, sink_port)
+
+        # Number of output ports per MEM (configurable)
+        num_output_ports = int(os.getenv("MEM_NUM_OUTPUT_PORTS", "2"))
+
+        # Define broadcast paths to break: (source_id, [sink_ids], mem_base_name)
+        broadcast_paths = [
+            # ("r47", ["p160", "p167"], "hw_input_global_wrapper_global_wrapper_stencil$broadcast_mem_r47"),
+            # ("p154", ["p174", "r9"], "hw_input_global_wrapper_global_wrapper_stencil$broadcast_mem_p154"),
+            # ("p137", ["p173", "r47"], "hw_input_global_wrapper_global_wrapper_stencil$broadcast_mem_p137"),
+            # ("r5", ["p150", "p156"], "hw_input_global_wrapper_global_wrapper_stencil$broadcast_mem_r5"),
+            # ("r0", ["p0", "p8", "p15"], "hw_input_global_wrapper_global_wrapper_stencil$broadcast_mem_r0"),
+            # ("r7", ["p151", "p155"], "hw_input_global_wrapper_global_wrapper_stencil$broadcast_mem_r7"),
+
+            # ("r7", ["p175"], "hw_input_global_wrapper_global_wrapper_stencil$broadcast_mem_r7"), #hang
+            # ("p129", ["p142", "p148", "p151", "p155"], "hw_input_global_wrapper_global_wrapper_stencil$broadcast_mem_p129"), # hang
+            # ("p133", ["p16", "p0", "p6", "p3"], "hw_input_global_wrapper_global_wrapper_stencil$broadcast_mem_p133"), # hang
+
+            ("p146", ["p1", "p4"], "g_gb_stencil$broadcast_mem_p146"),
+            ("r6", ["p143", "p147", "p150", "p156", "p172", "p40", "p48", "p112"], "g_gb_stencil$broadcast_mem_r6"),
+            ("r3", ["p165", "p166", "p9", "p64", "p72", "p80"], "g_gr_stencil$broadcast_mem_r3"),
+        ]
+
+        # Break all broadcast paths
+        for source_id, sink_ids, mem_base_name in broadcast_paths:
+            break_broadcast_path_with_mems(source_id, sink_ids, mem_base_name, num_output_ports)
+
+        # Merge pairs of hw_input_global_wrapper_global_wrapper_stencil MEMs
+        # Pairs: BANK_2+BANK_3, BANK_4+BANK_5, BANK_6+BANK_7
+        mem_pairs = [
+            (2, 3),
+            (4, 5),
+            (6, 7)
+        ]
+
+        base_pattern = "hw_input_global_wrapper_global_wrapper_stencil$ub_hw_input_global_wrapper_global_wrapper_stencil_BANK_{}_garnet"
+
+        for bank1, bank2 in mem_pairs:
+            mem1_name = base_pattern.format(bank1)
+            mem2_name = base_pattern.format(bank2)
+
+            # Check if both MEM instances exist
+            if mem1_name not in instances or mem2_name not in instances:
+                continue
+
+            # Find all sinks connected to mem2's data_out_0
+            mem2_output_port = f"{mem2_name}.data_out_0"
+            mem2_sinks = []
+            for conn in connections:
+                left, right = conn[0], conn[1]
+                if left == mem2_output_port:
+                    mem2_sinks.append(right)
+                elif right == mem2_output_port:
+                    mem2_sinks.append(left)
+
+            # Rewire mem2's sinks to mem1's data_out_1
+            for sink in mem2_sinks:
+                # Remove connection from mem2.data_out_0 to sink
+                remove_conn(mem2_output_port, sink)
+                # Add connection from mem1.data_out_1 to sink
+                add_conn_once(f"{mem1_name}.data_out_1", sink)
+
+            # Remove all remaining connections involving mem2 (including input connections)
+            # Since both MEMs in a pair share the same inputs, we don't need to copy them
+            remove_all_conns(mem2_name)
+
+            # Delete mem2 instance
+            if mem2_name in instances:
+                del instances[mem2_name]
 
         # Overwrite the JSON
         with open(json_path, "w") as f:
