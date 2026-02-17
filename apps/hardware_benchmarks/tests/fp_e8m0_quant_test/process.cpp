@@ -97,14 +97,12 @@ int main( int argc, char **argv ) {
   // Generate reference output based on the algorithm in fp_e8m0_quant_test_generator.cpp
   for (int y = 0; y < 64; y++) {
     for (int x = 0; x < 64; x++) {
-      processor.output(x, y) =
-      static_cast<uint16_t>(
-        static_cast<uint8_t>(
-          static_cast<int8_t>(
-            round(bfloat16_to_float_process(input_copy(x, y)) / float(pow(2, e8m0_copy(x, y) - 127)))
-          )
-        )
-      );
+      int32_t quantized = static_cast<int32_t>(
+        round(bfloat16_to_float_process(input_copy(x, y)) / float(pow(2, e8m0_copy(x, y) - 127))));
+      // Saturation for INT8 range [-128, 127]
+      if (quantized > 127) quantized = 127;
+      else if (quantized < -128) quantized = -128;
+      processor.output(x, y) = static_cast<uint16_t>(static_cast<uint8_t>(static_cast<int8_t>(quantized)));
     }
   }
 
