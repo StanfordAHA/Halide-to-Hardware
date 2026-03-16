@@ -529,6 +529,17 @@ def hack_addr_gen_for_mu_tiling(meta, mu_tiling_file):
 
     mha_permute = "MHA_PERMUTE" in os.environ and os.environ["MHA_PERMUTE"] == "1"
     num_attn_heads = int(os.environ.get("NUM_ATTENTION_HEADS", 12))
+
+    k_dim_host_tiling = "K_DIM_HOST_TILING" in os.environ and os.environ["K_DIM_HOST_TILING"] == "1"
+    if k_dim_host_tiling:
+        assert "NUM_K_HOST_TILING_KERNELS" in os.environ, "NUM_K_HOST_TILING_KERNELS environment variable must be set for K_DIM_HOST_TILING"
+        num_k_host_tiling_kernels = int(os.environ.get("NUM_K_HOST_TILING_KERNELS"))
+        output_tensor_k_dim_tiling = "OUTPUT_TENSOR_K_DIM_TILING" in os.environ and os.environ["OUTPUT_TENSOR_K_DIM_TILING"] == "1"
+
+        # K-dim tiling means tiling attention heads for MHA permute 
+        if output_tensor_k_dim_tiling:
+            num_attn_heads //= num_k_host_tiling_kernels
+
     # K dimension host tiling: used in resnet18 conv5 in Zircon
     # k_dim_host_tiling = "K_DIM_HOST_TILING" in os.environ and os.environ["K_DIM_HOST_TILING"] == "1"
     # if k_dim_host_tiling:
