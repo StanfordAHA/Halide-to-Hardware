@@ -1,0 +1,192 @@
+{
+    "balance_lengths": {
+        "p13": 8,
+        "p14": 4,
+        "p15": 4,
+        "p16": 4,
+        "p8": 2,
+        "p9": 2,
+        "p11": 4,
+        "p27": 2,
+        "p0": 2,
+        "p1": 2,
+        "p28": 2,
+        "p6": 4,
+        "p7": 2,
+        "p2": 4,
+        "p3": 4,
+        "p4": 4,
+        "p5": 4,
+        "p31": 4,
+        "p24": 16,
+        "p25": 16,
+        "p19": 8,
+        "p20": 16,
+        "p17": 2,
+        "p18": 8,
+        "p21": 16,
+        "p22": 16
+    },
+    "total_stream_lengths": {
+        "p13": 2048,
+        "p14": 2048,
+        "p15": 2048,
+        "p16": 2048,
+        "p8": 2048,
+        "p9": 2048,
+        "p11": 2048,
+        "p27": 2048,
+        "p0": 2048,
+        "p1": 2048,
+        "p28": 2048,
+        "p6": 2048,
+        "p7": 2048,
+        "p2": 2048,
+        "p3": 2048,
+        "p4": 2048,
+        "p5": 2048,
+        "p31": 2048,
+        "p24": 2048,
+        "p25": 2048,
+        "p19": 2048,
+        "p20": 2048,
+        "p17": 2048,
+        "p18": 2048,
+        "p21": 2048,
+        "p22": 2048
+    },
+    "name_to_id": {
+        "op_hcompute_result_stencil_20$inner_compute$float_DW_fp_add_i3339_i792": "p13",
+        "op_hcompute_result_stencil_21$inner_compute$float_DW_fp_add_i3345_i792": "p14",
+        "op_hcompute_result_stencil_22$inner_compute$float_DW_fp_add_i3351_i792": "p15",
+        "op_hcompute_result_stencil_23$inner_compute$float_DW_fp_add_i3357_i792": "p16",
+        "op_hcompute_result_stencil_16$inner_compute$float_DW_fp_add_i3309_i792": "p8",
+        "op_hcompute_result_stencil_17$inner_compute$float_DW_fp_add_i3315_i792": "p9",
+        "op_hcompute_result_stencil_19$inner_compute$float_DW_fp_add_i3327_i792": "p11",
+        "op_hcompute_result_stencil_5$inner_compute$float_DW_fp_add_i3423_i792": "p27",
+        "op_hcompute_result_stencil$inner_compute$float_DW_fp_add_i3261_i792": "p0",
+        "op_hcompute_result_stencil_1$inner_compute$float_DW_fp_add_i3267_i792": "p1",
+        "op_hcompute_result_stencil_6$inner_compute$float_DW_fp_add_i3429_i792": "p28",
+        "op_hcompute_result_stencil_14$inner_compute$float_DW_fp_add_i3297_i792": "p6",
+        "op_hcompute_result_stencil_15$inner_compute$float_DW_fp_add_i3303_i792": "p7",
+        "op_hcompute_result_stencil_10$inner_compute$float_DW_fp_add_i3273_i792": "p2",
+        "op_hcompute_result_stencil_11$inner_compute$float_DW_fp_add_i3279_i792": "p3",
+        "op_hcompute_result_stencil_12$inner_compute$float_DW_fp_add_i3285_i792": "p4",
+        "op_hcompute_result_stencil_13$inner_compute$float_DW_fp_add_i3291_i792": "p5",
+        "op_hcompute_result_stencil_9$inner_compute$float_DW_fp_add_i3447_i792": "p31",
+        "op_hcompute_result_stencil_30$inner_compute$float_DW_fp_add_i3405_i792": "p24",
+        "op_hcompute_result_stencil_31$inner_compute$float_DW_fp_add_i3411_i792": "p25",
+        "op_hcompute_result_stencil_26$inner_compute$float_DW_fp_add_i3375_i792": "p19",
+        "op_hcompute_result_stencil_27$inner_compute$float_DW_fp_add_i3381_i792": "p20",
+        "op_hcompute_result_stencil_24$inner_compute$float_DW_fp_add_i3363_i792": "p17",
+        "op_hcompute_result_stencil_25$inner_compute$float_DW_fp_add_i3369_i792": "p18",
+        "op_hcompute_result_stencil_28$inner_compute$float_DW_fp_add_i3387_i792": "p21",
+        "op_hcompute_result_stencil_29$inner_compute$float_DW_fp_add_i3393_i792": "p22"
+    },
+    "pe_to_pond": {
+        "p13": [
+            true,
+            ""
+        ],
+        "p14": [
+            true,
+            ""
+        ],
+        "p15": [
+            true,
+            ""
+        ],
+        "p16": [
+            true,
+            ""
+        ],
+        "p8": [
+            true,
+            ""
+        ],
+        "p9": [
+            true,
+            ""
+        ],
+        "p11": [
+            true,
+            ""
+        ],
+        "p27": [
+            true,
+            ""
+        ],
+        "p0": [
+            true,
+            ""
+        ],
+        "p1": [
+            true,
+            ""
+        ],
+        "p28": [
+            true,
+            ""
+        ],
+        "p6": [
+            true,
+            ""
+        ],
+        "p7": [
+            true,
+            ""
+        ],
+        "p2": [
+            true,
+            ""
+        ],
+        "p3": [
+            true,
+            ""
+        ],
+        "p4": [
+            true,
+            ""
+        ],
+        "p5": [
+            true,
+            ""
+        ],
+        "p31": [
+            true,
+            ""
+        ],
+        "p24": [
+            true,
+            ""
+        ],
+        "p25": [
+            true,
+            ""
+        ],
+        "p19": [
+            true,
+            ""
+        ],
+        "p20": [
+            true,
+            ""
+        ],
+        "p17": [
+            true,
+            ""
+        ],
+        "p18": [
+            true,
+            ""
+        ],
+        "p21": [
+            true,
+            ""
+        ],
+        "p22": [
+            true,
+            ""
+        ]
+    }
+}
