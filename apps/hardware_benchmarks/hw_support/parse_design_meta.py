@@ -382,7 +382,8 @@ def E64_packing(json_data):
                     unique_positions.add(position)
 
                     # Apply extent scaling only for packed x-positions
-                    if tile["x_pos"] in pack_x_set:
+                    # Skip extent scaling if E64_packed was explicitly set to 0
+                    if tile["x_pos"] in pack_x_set and tile.get("E64_packed", 1) != 0:
                         if "extent_multiplier" in tile:
                             tile["extent_multiplier"] *= 4
                         else:
@@ -799,7 +800,8 @@ def addFakeIOsFromScheduledOps(meta, bin_directory):
         if not data_banks or not graph_banks:
             return []
         graph_unique = set(graph_banks)
-        return sorted(x for x in set(data_banks) if x not in graph_unique)
+        # Return the full list with repeats so fake tile count matches E64 packing.
+        return sorted(x for x in data_banks if x not in graph_unique)
 
     for i, io_entry in enumerate(meta["IOs"]["inputs"]):
         if "io_tiles" not in io_entry or i >= len(kernel_inputs):
@@ -812,9 +814,9 @@ def addFakeIOsFromScheduledOps(meta, bin_directory):
             tile.setdefault("is_fake_io", 0)
         node_name = kernel_io.get("node", f"input_{i}")
         template_tile = io_entry["io_tiles"][0]
-        for x_pos in fake_x_positions:
+        for idx, x_pos in enumerate(fake_x_positions):
             fake_tile = copy.deepcopy(template_tile)
-            fake_tile["name"] = f"fake_io_input_{node_name}_x{x_pos}"
+            fake_tile["name"] = f"fake_io_input_{node_name}_x{x_pos}_{idx}"
             fake_tile["x_pos"] = x_pos
             fake_tile["y_pos"] = 0
             fake_tile["is_fake_io"] = 1
@@ -832,14 +834,43 @@ def addFakeIOsFromScheduledOps(meta, bin_directory):
             tile.setdefault("is_fake_io", 0)
         node_name = kernel_io.get("node", f"output_{i}")
         template_tile = io_entry["io_tiles"][0]
-        for x_pos in fake_x_positions:
+        for idx, x_pos in enumerate(fake_x_positions):
             fake_tile = copy.deepcopy(template_tile)
-            fake_tile["name"] = f"fake_io_output_{node_name}_x{x_pos}"
+            fake_tile["name"] = f"fake_io_output_{node_name}_x{x_pos}_{idx}"
             fake_tile["x_pos"] = x_pos
             fake_tile["y_pos"] = 0
             fake_tile["is_fake_io"] = 1
             io_entry["io_tiles"].append(fake_tile)
         io_entry["io_tiles"].sort(key=lambda t: t["x_pos"])
+
+    def get_e64_packing_map(kernel_io):
+        graph_banks = kernel_io.get("glb_bank_idx_for_graph", [])
+        e64_values = kernel_io.get("e64_packing_for_graph", [])
+        mapping = {}
+        for bank, flag in zip(graph_banks, e64_values):
+            if bank not in mapping:
+                mapping[bank] = flag
+        return mapping
+
+    for i, io_entry in enumerate(meta["IOs"]["inputs"]):
+        if "io_tiles" not in io_entry or i >= len(kernel_inputs):
+            continue
+        e64_map = get_e64_packing_map(kernel_inputs[i])
+        if not e64_map:
+            continue
+        for tile in io_entry["io_tiles"]:
+            if e64_map.get(tile["x_pos"], 1) == 0:
+                tile["E64_packed"] = 0
+
+    for i, io_entry in enumerate(meta["IOs"]["outputs"]):
+        if "io_tiles" not in io_entry or i >= len(kernel_outputs):
+            continue
+        e64_map = get_e64_packing_map(kernel_outputs[i])
+        if not e64_map:
+            continue
+        for tile in io_entry["io_tiles"]:
+            if e64_map.get(tile["x_pos"], 1) == 0:
+                tile["E64_packed"] = 0
 
     return meta
 
