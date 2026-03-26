@@ -4218,6 +4218,37 @@ class SelectedDesignHacker:
             # Connect clock enable
             add_conn_once(f"{input_buffer_mem_name}.clk_en", f"{shared_clk_const_name}.out")
 
+            # Insert input buffer MEM between mu_input IO and add PE's .data0
+            # Find the mu_input IO connected to add PE's .data0
+            mu_input_io_name_for_buf = None
+            mu_input_conn = None
+            for conn in connections:
+                a, b = conn[0], conn[1]
+                if ((a == f"{add_pe_name}.data0" and b.startswith("io16in_mu_input_host_stencil")) or
+                    (b == f"{add_pe_name}.data0" and a.startswith("io16in_mu_input_host_stencil"))):
+                    mu_input_conn = conn
+                    mu_input_io_name_for_buf = (b if a == f"{add_pe_name}.data0" else a).split(".")[0]
+                    break
+
+            if mu_input_io_name_for_buf is None:
+                raise ValueError(f"[ERROR]: Could not find mu_input IO connected to add PE {add_pe_name}.data0 for clkwrk_idx {clkwrk_idx}.")
+
+            # Create MEM buffer for mu_input
+            mu_buf_mem_name = f"{top_module}_mu_buffer_mem_clkwrk_{clkwrk_idx}"
+            if mu_buf_mem_name not in instances:
+                instances[mu_buf_mem_name] = copy.deepcopy(self.mem_tpl)
+                instances[mu_buf_mem_name]["genargs"]["ID"][1] = mu_buf_mem_name
+
+            # Break existing connection: mu_input IO.out -> add_pe.data0
+            remove_conn(mu_input_conn[0], mu_input_conn[1])
+
+            # Wire up MEM: mu_input IO.out -> MEM.data_in_0 -> MEM.data_out_0 -> add_pe.data0
+            add_conn_once(f"{mu_input_io_name_for_buf}.out", f"{mu_buf_mem_name}.data_in_0")
+            add_conn_once(f"{mu_buf_mem_name}.data_out_0", f"{add_pe_name}.data0")
+
+            # Connect clock enable
+            add_conn_once(f"{mu_buf_mem_name}.clk_en", f"{shared_clk_const_name}.out")
+
         # Overwrite the JSON
         with open(json_path, "w") as f:
             f.write(pretty_format_json(design))
