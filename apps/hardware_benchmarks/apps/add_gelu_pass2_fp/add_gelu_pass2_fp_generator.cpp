@@ -21,6 +21,8 @@ public:
     // glb_i determines the input glb unrolling
     GeneratorParam<int> glb_i{ "glb_i", 16 };
 
+    GeneratorParam<float> swish_beta{ "swish_beta", 1.702f };
+
     void generate() {
         /* THE ALGORITHM */
         Var x("x"), y("y");
@@ -38,7 +40,7 @@ public:
         input_psum0_lower_glb(x, y) = input_psum0_lower_host(x, y);
         input_psum0_lower_cgra(x, y) = input_psum0_lower_glb(x, y);
 
-        output_cgra(x, y) = (input_cgra(x, y) + input_psum0_lower_cgra(x, y)) / (bf16(1.0f) + exp(bf16(-1.702f) * (input_cgra(x, y) + input_psum0_lower_cgra(x, y))));
+        output_cgra(x, y) = (input_cgra(x, y) + input_psum0_lower_cgra(x, y)) / (bf16(1.0f) + exp(bf16(-1.0f * swish_beta) * (input_cgra(x, y) + input_psum0_lower_cgra(x, y))));
 
         output_glb(x, y) = output_cgra(x, y);
         hw_output(x, y) = output_glb(x, y);

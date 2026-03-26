@@ -70,10 +70,12 @@ int main(int argc, char **argv) {
     auto vec_width_env = getenv("vec_width");
     auto vec_height_env = getenv("vec_height");
     auto mu_i_env = getenv("mu_i");
+    auto swish_beta_env = getenv("swish_beta");
 
     auto vec_width = vec_width_env ? atoi(vec_width_env) : 3072;
     auto vec_height = vec_height_env ? atoi(vec_height_env) : 64;
     auto mu_i = mu_i_env ? atoi(mu_i_env) : 32;
+    auto swish_beta = swish_beta_env ? atof(swish_beta_env) : 1.702f;
 
     std::cout << "using inputs set within process.cpp" << std::endl;
     processor.inputs_preset = true;
@@ -117,7 +119,7 @@ int main(int argc, char **argv) {
             float sum = input_val + psum_val;
             // Then apply GELU
             computed_output(x, y) = float_to_bfloat16_process(
-                sum / (1.0f + expf(-1.702f * sum))
+                sum / (1.0f + expf(-1.0f * swish_beta * sum))
             );
         }
     }
