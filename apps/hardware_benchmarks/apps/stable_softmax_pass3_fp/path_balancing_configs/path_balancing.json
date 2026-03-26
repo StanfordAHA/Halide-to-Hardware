@@ -1,0 +1,150 @@
+{
+    "balance_lengths": {
+        "p24": 2,
+        "p23": 2,
+        "p4": 4,
+        "p3": 2,
+        "p27": 4,
+        "p31": 4,
+        "p29": 4,
+        "p26": 2,
+        "p8": 2,
+        "p9": 2,
+        "p10": 8,
+        "p13": 4,
+        "p11": 2,
+        "p12": 2,
+        "p19": 2,
+        "p17": 4,
+        "p5": 8,
+        "p32": 4,
+        "p34": 8,
+        "p33": 2
+    },
+    "total_stream_lengths": {
+        "p24": 8192,
+        "p23": 8192,
+        "p4": 8192,
+        "p3": 8192,
+        "p27": 8192,
+        "p31": 8192,
+        "p29": 8192,
+        "p26": 8192,
+        "p8": 8192,
+        "p9": 8192,
+        "p10": 8192,
+        "p13": 8192,
+        "p11": 8192,
+        "p12": 8192,
+        "p19": 8192,
+        "p17": 8192,
+        "p5": 8192,
+        "p32": 8192,
+        "p34": 8192,
+        "p33": 8192
+    },
+    "name_to_id": {
+        "op_hcompute_output_glb_stencil$inner_compute$float_DW_fp_mul_i3209_i1325": "p3",
+        "op_hcompute_output_glb_stencil_1$inner_compute$float_DW_fp_mul_i3215_i1325": "p4",
+        "op_hcompute_output_glb_stencil_10$inner_compute$float_DW_fp_mul_i3221_i1325": "p5",
+        "op_hcompute_output_glb_stencil_13$inner_compute$float_DW_fp_mul_i3239_i1325": "p8",
+        "op_hcompute_output_glb_stencil_14$inner_compute$float_DW_fp_mul_i3245_i1325": "p9",
+        "op_hcompute_output_glb_stencil_15$inner_compute$float_DW_fp_mul_i3251_i1325": "p10",
+        "op_hcompute_output_glb_stencil_16$inner_compute$float_DW_fp_mul_i3257_i1325": "p11",
+        "op_hcompute_output_glb_stencil_17$inner_compute$float_DW_fp_mul_i3263_i1325": "p12",
+        "op_hcompute_output_glb_stencil_18$inner_compute$float_DW_fp_mul_i3269_i1325": "p13",
+        "op_hcompute_output_glb_stencil_21$inner_compute$float_DW_fp_mul_i3293_i1325": "p17",
+        "op_hcompute_output_glb_stencil_23$inner_compute$float_DW_fp_mul_i3305_i1325": "p19",
+        "op_hcompute_output_glb_stencil_27$inner_compute$float_DW_fp_mul_i3329_i1325": "p23",
+        "op_hcompute_output_glb_stencil_28$inner_compute$float_DW_fp_mul_i3335_i1325": "p24",
+        "op_hcompute_output_glb_stencil_3$inner_compute$float_DW_fp_mul_i3347_i1325": "p26",
+        "op_hcompute_output_glb_stencil_30$inner_compute$float_DW_fp_mul_i3353_i1325": "p27",
+        "op_hcompute_output_glb_stencil_4$inner_compute$float_DW_fp_mul_i3365_i1325": "p29",
+        "op_hcompute_output_glb_stencil_6$inner_compute$float_DW_fp_mul_i3377_i1325": "p31",
+        "op_hcompute_output_glb_stencil_7$inner_compute$float_DW_fp_mul_i3383_i1325": "p32",
+        "op_hcompute_output_glb_stencil_8$inner_compute$float_DW_fp_mul_i3389_i1325": "p33",
+        "op_hcompute_output_glb_stencil_9$inner_compute$float_DW_fp_mul_i3395_i1325": "p34"
+    },
+    "pe_to_pond": {
+        "p24": [
+            true,
+            ""
+        ],
+        "p23": [
+            true,
+            ""
+        ],
+        "p4": [
+            true,
+            ""
+        ],
+        "p3": [
+            true,
+            ""
+        ],
+        "p27": [
+            true,
+            ""
+        ],
+        "p31": [
+            true,
+            ""
+        ],
+        "p29": [
+            true,
+            ""
+        ],
+        "p26": [
+            true,
+            ""
+        ],
+        "p8": [
+            true,
+            ""
+        ],
+        "p9": [
+            true,
+            ""
+        ],
+        "p10": [
+            true,
+            ""
+        ],
+        "p13": [
+            true,
+            ""
+        ],
+        "p11": [
+            true,
+            ""
+        ],
+        "p12": [
+            true,
+            ""
+        ],
+        "p19": [
+            true,
+            ""
+        ],
+        "p17": [
+            true,
+            ""
+        ],
+        "p5": [
+            true,
+            ""
+        ],
+        "p32": [
+            true,
+            ""
+        ],
+        "p34": [
+            true,
+            ""
+        ],
+        "p33": [
+            true,
+            ""
+        ]
+    }
+}
