@@ -14,7 +14,9 @@ APPS_NEEDING_HACKS = [
     "scalar_avg_fp",
     "layer_norm_pass1_fp",
     "layer_norm_pass2_fp",
+    "rms_norm_pass1_fp",
     "layer_norm_pass3_fp",
+    "rms_norm_pass2_fp",
     "gelu_pass1_mu_input_fp",
     "gelu_pass2_fp",
     "add_gelu_pass1_mu_input_fp",
@@ -3330,6 +3332,268 @@ class SelectedDesignHacker:
         with open(json_path, "w") as f:
             json.dump(design, f, indent=2)
 
+    def hack_for_rms_norm_pass1_fp_rv(self, json_path, bin_path):
+        # Same graph structure as layer_norm_pass2_fp:
+        #   - reduction tree over squared inputs (tile_input = x*x)
+        #   - outer accumulation -> log -> *0.5 -> exp (i.e. sqrt via exp(0.5*log))
+        #   - elementwise fp_mul of input with the scalar result
+        # Differences from layer_norm_pass2_fp that do NOT affect graph topology:
+        #   - gamma removed: numerator constant is sqrt(N) instead of sqrt(N)*gamma
+        #     (only the PE instruction value changes, not the wiring)
+        #   - beta removed: no trailing fp_add after the elementwise fp_mul
+        #     (_hack_reduction_followed_by_elementwise_rv already stops at fp_mul;
+        #      the additional hacks below only touch the internal reduction path)
+        self._hack_reduction_followed_by_elementwise_rv(
+            json_path, bin_path,
+            top_module="rms_norm_pass1_fp",
+            scalar_op_type="log",
+            elementwise_op_type="fp_mul"
+        )
+
+        # Add dummy_max_nop PE between fp_addiexp and fp_subexp for path balancing
+        with open(json_path, "r") as f:
+            design = json.load(f)
+
+        top_module = "rms_norm_pass1_fp"
+        global_modules = design["namespaces"]["global"]["modules"]
+        if top_module not in global_modules:
+            raise RuntimeError(f"[ERROR]: Module '{top_module}' not found in design.")
+
+        rms_norm_pass1_fp = global_modules[top_module]
+        instances = rms_norm_pass1_fp["instances"]
+        connections = rms_norm_pass1_fp["connections"]
+
+        # Find connections from fp_addiexp to fp_subexp
+        connections_to_modify = []
+        for conn in connections:
+            left, right = conn[0], conn[1]
+            # Check both directions since connections are unordered
+            if "fp_addiexp" in left and ".O0" in left and "fp_subexp" in right and ".data1" in right:
+                connections_to_modify.append((left, right))
+            elif "fp_addiexp" in right and ".O0" in right and "fp_subexp" in left and ".data1" in left:
+                connections_to_modify.append((right, left))
+
+        if not connections_to_modify:
+            raise RuntimeError(f"[ERROR]: No fp_addiexp to fp_subexp connections found in '{top_module}'.")
+
+        # Helper function to add connection only if it doesn't exist
+        def add_conn_once(src, dst):
+            pair = [src, dst]
+            if pair not in connections:
+                connections.append(pair)
+
+        # Create dummy_max_nop PEs and modify connections
+        pe_counter = 0
+        for src, dst in connections_to_modify:
+            # Extract base name from source for PE naming
+            src_base = src.split(".O0")[0]
+            dummy_pe_name = f"{src_base}_dummy_max_nop_pe{pe_counter}"
+            dummy_const_name = f"{src_base}_dummy_max_nop_const{pe_counter}"
+
+            # Create const instruction instance
+            instances[dummy_const_name] = {
+                "genref": "coreir.const",
+                "genargs": {"width": ["Int", 84]},
+                "modargs": {"value": [["BitVector", 84], self.DUMMY_MAX_NOP_INSTR]},
+            }
+
+            # Create PE instance
+            instances[dummy_pe_name] = copy.deepcopy(self.pe_tpl)
+
+            # Remove original connection
+            removed = False
+            pair1 = [src, dst]
+            pair2 = [dst, src]
+            if pair1 in connections:
+                connections.remove(pair1)
+                removed = True
+            elif pair2 in connections:
+                connections.remove(pair2)
+                removed = True
+            if not removed:
+                raise RuntimeError(
+                    f"[ERROR]: Expected connection between '{src}' and '{dst}' not found when inserting dummy PE."
+                )
+
+            # Add new connections through dummy PE
+            add_conn_once(src, f"{dummy_pe_name}.data0")
+            add_conn_once(f"{dummy_pe_name}.inst", f"{dummy_const_name}.out")
+            add_conn_once(f"{dummy_pe_name}.O0", dst)
+
+            print(f"INFO: Added dummy_max_nop PE '{dummy_pe_name}' between '{src}' and '{dst}'")
+            pe_counter += 1
+
+        # Move square fp_mul PEs to after MEM.data_out_0
+        # Find all square fp_mul PEs (op_hcompute_tile_input_stencil* with fp_mul)
+        square_fp_mul_pes = []
+        for inst_name in instances:
+            if "op_hcompute_tile_input_stencil" in inst_name and "float_DW_fp_mul" in inst_name:
+                square_fp_mul_pes.append(inst_name)
+
+        # For each square fp_mul PE, find:
+        # 1. Connections from IO to fp_mul (both data0 and data1)
+        # 2. Connection from fp_mul.O0 to MEM.data_in_0
+        # 3. The corresponding MEM bank and IO
+        for fp_mul_pe in square_fp_mul_pes:
+            # Find IO connections (both data0 and data1 should connect to same IO)
+            io_connections = []
+            mem_connection = None
+            mem_bank_name = None
+
+            for conn in connections:
+                left, right = conn[0], conn[1]
+
+                # Check for IO -> fp_mul connections
+                if f"{fp_mul_pe}.data0" in right and "io16in_input_host_stencil" in left and ".out" in left:
+                    io_connections.append((left, right))
+                elif f"{fp_mul_pe}.data0" in left and "io16in_input_host_stencil" in right and ".out" in right:
+                    io_connections.append((right, left))
+
+                if f"{fp_mul_pe}.data1" in right and "io16in_input_host_stencil" in left and ".out" in left:
+                    io_connections.append((left, right))
+                elif f"{fp_mul_pe}.data1" in left and "io16in_input_host_stencil" in right and ".out" in right:
+                    io_connections.append((right, left))
+
+                # Check for fp_mul.O0 -> MEM.data_in_0 connection
+                if f"{fp_mul_pe}.O0" in left and "tile_input_stencil$ub_tile_input_stencil_BANK" in right and ".data_in_0" in right:
+                    mem_connection = (left, right)
+                    mem_bank_name = right.split(".")[0]
+                elif f"{fp_mul_pe}.O0" in right and "tile_input_stencil$ub_tile_input_stencil_BANK" in left and ".data_in_0" in left:
+                    mem_connection = (right, left)
+                    mem_bank_name = left.split(".")[0]
+
+            if not io_connections or not mem_connection:
+                raise RuntimeError(f"[ERROR]: Could not find all connections for square fp_mul PE '{fp_mul_pe}'.")
+
+            # Extract IO name
+            io_names = set()
+            for io_conn in io_connections:
+                io_name = io_conn[0].split(".")[0] if "io16in_input_host_stencil" in io_conn[0] else io_conn[1].split(".")[0]
+                io_names.add(io_name)
+
+            if len(io_names) != 1:
+                raise RuntimeError(f"[ERROR]: Expected single IO for fp_mul PE '{fp_mul_pe}', found {io_names}.")
+
+            io_name = next(iter(io_names))
+            io_out_port = f"{io_name}.out"
+            mem_data_out_0 = f"{mem_bank_name}.data_out_0"
+            mem_data_in_0 = f"{mem_bank_name}.data_in_0"
+
+            # Find tree PE connections from MEM.data_out_0
+            tree_pe_connections = []
+            for conn in connections:
+                left, right = conn[0], conn[1]
+                # Check if this connection is from MEM.data_out_0 to a tree PE
+                if mem_data_out_0 == left and "op_hcompute_tree" in right and ".data" in right:
+                    tree_pe_connections.append(right)
+                elif mem_data_out_0 == right and "op_hcompute_tree" in left and ".data" in left:
+                    tree_pe_connections.append(left)
+
+            # Remove old connections
+            connections_to_remove_indices = []
+            fp_mul_o0 = f"{fp_mul_pe}.O0"
+            fp_mul_data0 = f"{fp_mul_pe}.data0"
+            fp_mul_data1 = f"{fp_mul_pe}.data1"
+            for idx, conn in enumerate(connections):
+                left, right = conn[0], conn[1]
+                # Remove IO -> fp_mul connections
+                if (io_out_port == left and (right == fp_mul_data0 or right == fp_mul_data1)) or \
+                   (io_out_port == right and (left == fp_mul_data0 or left == fp_mul_data1)):
+                    connections_to_remove_indices.append(idx)
+                # Remove fp_mul.O0 -> MEM.data_in_0 connection
+                elif (fp_mul_o0 == left and mem_data_in_0 == right) or \
+                     (fp_mul_o0 == right and mem_data_in_0 == left):
+                    connections_to_remove_indices.append(idx)
+                # Remove MEM.data_out_0 -> tree PE connections (will be replaced with fp_mul.O0 -> tree PE)
+                elif (mem_data_out_0 == left and right in tree_pe_connections) or (mem_data_out_0 == right and left in tree_pe_connections):
+                    connections_to_remove_indices.append(idx)
+
+            # Remove connections in reverse order to maintain indices
+            for idx in sorted(connections_to_remove_indices, reverse=True):
+                removed_conn = connections.pop(idx)
+                print(f"[DEBUG] Removed connection: {removed_conn}")
+
+            # Add new connections:
+            # 1. IO -> MEM.data_in_0 (direct, no fp_mul)
+            add_conn_once(io_out_port, mem_data_in_0)
+
+            # 2. MEM.data_out_0 -> fp_mul.data0 and fp_mul.data1 (squaring after MEM)
+            add_conn_once(mem_data_out_0, f"{fp_mul_pe}.data0")
+            add_conn_once(mem_data_out_0, f"{fp_mul_pe}.data1")
+
+            # 3. fp_mul.O0 -> tree PEs (redirected from MEM.data_out_0 -> tree PEs)
+            for tree_pe_port in tree_pe_connections:
+                add_conn_once(fp_mul_o0, tree_pe_port)
+
+            print(f"[INFO] Moved square fp_mul PE '{fp_mul_pe}' to after {mem_bank_name}.data_out_0")
+
+        # Add dummy_max_nop PE after each final elementwise fp_mul PE (before output IO)
+        elementwise_fp_mul_pes = []
+        for inst_name in instances:
+            if "op_hcompute_output_glb_stencil" in inst_name and "float_DW_fp_mul" in inst_name:
+                elementwise_fp_mul_pes.append(inst_name)
+
+        nop_counter = 0
+        for ew_pe in elementwise_fp_mul_pes:
+            ew_pe_o0 = f"{ew_pe}.O0"
+
+            # Find connection from this elementwise fp_mul.O0 to output IO .in
+            output_io_conn = None
+            for conn in connections:
+                left, right = conn[0], conn[1]
+                if ew_pe_o0 == left and "io16_hw_output_stencil" in right and ".in" in right:
+                    output_io_conn = (left, right)
+                    break
+                elif ew_pe_o0 == right and "io16_hw_output_stencil" in left and ".in" in left:
+                    output_io_conn = (right, left)
+                    break
+
+            if not output_io_conn:
+                raise RuntimeError(
+                    f"[ERROR]: Could not find output IO connection for elementwise fp_mul PE '{ew_pe}'."
+                )
+
+            src, dst = output_io_conn
+            dummy_pe_name = f"{top_module}_output_dummy_max_nop_pe{nop_counter}"
+            dummy_const_name = f"{top_module}_output_dummy_max_nop_const{nop_counter}"
+
+            # Create const instruction instance
+            instances[dummy_const_name] = {
+                "genref": "coreir.const",
+                "genargs": {"width": ["Int", 84]},
+                "modargs": {"value": [["BitVector", 84], self.DUMMY_MAX_NOP_INSTR]},
+            }
+
+            # Create PE instance
+            instances[dummy_pe_name] = copy.deepcopy(self.pe_tpl)
+
+            # Remove original connection
+            removed = False
+            pair1 = [src, dst]
+            pair2 = [dst, src]
+            if pair1 in connections:
+                connections.remove(pair1)
+                removed = True
+            elif pair2 in connections:
+                connections.remove(pair2)
+                removed = True
+            if not removed:
+                raise RuntimeError(
+                    f"[ERROR]: Expected connection between '{src}' and '{dst}' not found when inserting output dummy PE."
+                )
+
+            # Add new connections through dummy PE
+            add_conn_once(src, f"{dummy_pe_name}.data0")
+            add_conn_once(f"{dummy_pe_name}.inst", f"{dummy_const_name}.out")
+            add_conn_once(f"{dummy_pe_name}.O0", dst)
+
+            print(f"INFO: Added output dummy_max_nop PE '{dummy_pe_name}' between '{src}' and '{dst}'")
+            nop_counter += 1
+
+        # Write modified design back
+        with open(json_path, "w") as f:
+            json.dump(design, f, indent=2)
+
     def hack_for_layer_norm_pass3_fp_rv(self, json_path, bin_path):
         with open(json_path, "r") as f:
             design = json.load(f)
@@ -3350,6 +3614,40 @@ class SelectedDesignHacker:
         # Update metadata for io16in_weight_host_stencil and io16in_bias_host_stencil
         for inst_name, inst_config in instances.items():
             if (("io16in_weight_host_stencil" in inst_name or "io16in_bias_host_stencil" in inst_name) and
+                inst_config.get("modref") == "global.IO"):
+                if "glb2out_0" in inst_config.get("metadata", {}):
+                    md = inst_config["metadata"]["glb2out_0"]
+                    md["cycle_starting_addr"] = [0]
+                    md["cycle_stride"] = [1, 1]
+                    md["dimensionality"] = 2
+                    md["extent"] = [vec_width // glb_i, vec_height]
+                    md["read_data_starting_addr"] = [0]
+                    md["read_data_stride"] = [1, 1 - (vec_width // glb_i)]
+
+        # Overwrite the JSON
+        with open(json_path, "w") as f:
+            f.write(pretty_format_json(design))
+
+    def hack_for_rms_norm_pass2_fp_rv(self, json_path, bin_path):
+        with open(json_path, "r") as f:
+            design = json.load(f)
+
+        top_module = "rms_norm_pass2_fp"
+        global_modules = design["namespaces"]["global"]["modules"]
+        if top_module not in global_modules:
+            print(f"WARNING: Module '{top_module}' not found in design. No hack applied.")
+            return
+        rms_norm_pass2_fp = global_modules[top_module]
+
+        vec_width = int(self.halide_gen_args_dict["vec_width"])
+        vec_height = int(self.halide_gen_args_dict["vec_height"])
+        glb_i = int(self.halide_gen_args_dict["glb_i"])
+
+        instances = rms_norm_pass2_fp["instances"]
+
+        # Update metadata for io16in_weight_host_stencil
+        for inst_name, inst_config in instances.items():
+            if ("io16in_weight_host_stencil" in inst_name and
                 inst_config.get("modref") == "global.IO"):
                 if "glb2out_0" in inst_config.get("metadata", {}):
                     md = inst_config["metadata"]["glb2out_0"]
