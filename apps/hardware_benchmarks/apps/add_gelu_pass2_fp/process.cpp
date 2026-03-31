@@ -70,10 +70,12 @@ int main(int argc, char **argv) {
     auto vec_width_env = getenv("vec_width");
     auto vec_height_env = getenv("vec_height");
     auto glb_i_env = getenv("glb_i");
+    auto swish_beta_env = getenv("swish_beta");
 
     auto vec_width = vec_width_env ? atoi(vec_width_env) : 1536;
     auto vec_height = vec_height_env ? atoi(vec_height_env) : 64;
     auto glb_i = glb_i_env ? atoi(glb_i_env) : 16;
+    auto swish_beta = swish_beta_env ? atof(swish_beta_env) : 1.702f;
 
     std::cout << "using inputs set within process.cpp" << std::endl;
     processor.inputs_preset = true;
@@ -119,7 +121,7 @@ int main(int argc, char **argv) {
             float pass_through_val = bfloat16_to_float_process(pass_through_output(x, y));
             float psum_val = bfloat16_to_float_process(real_input_psum0_lower(x, y));
             float sum = pass_through_val + psum_val;
-            float add_gelu_val = sum / (1.0f + expf(-1.702f * sum));
+            float add_gelu_val = sum / (1.0f + expf(-1.0f * swish_beta * sum));
             gold_add_gelu_output(x, y) = float_to_bfloat16_process(add_gelu_val);
         }
     }

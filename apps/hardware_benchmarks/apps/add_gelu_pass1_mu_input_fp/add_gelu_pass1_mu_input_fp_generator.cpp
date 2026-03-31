@@ -22,6 +22,8 @@ public:
     // mu_i determines the input glb unrolling
     GeneratorParam<int> mu_i{ "mu_i", 32 };
 
+    GeneratorParam<float> swish_beta{ "swish_beta", 1.702f };
+
     void generate() {
         /* THE ALGORITHM */
         Var x("x"), y("y");
@@ -42,7 +44,7 @@ public:
         output_add_gelu_upper_cgra(x, y) =
             (mu_input_cgra(x, y) + input_psum0_cgra(x, y)) / (
                 bf16(1.0f) + exp(
-                    bf16(-1.702f) * (mu_input_cgra(x, y) + input_psum0_cgra(x, y))
+                    bf16(-1.0f * swish_beta) * (mu_input_cgra(x, y) + input_psum0_cgra(x, y))
                 )
             );
 
