@@ -76,16 +76,50 @@ int main(int argc, char **argv) {
     std::cout << "using inputs set within process.cpp" << std::endl;
     processor.inputs_preset = true;
 
+
+    auto real_input_env = getenv("USE_REAL_INPUT");
+    bool use_random_tensors = true;
+    if (real_input_env && strcmp(real_input_env, "1") == 0) {
+        use_random_tensors = false;
+    }
+
+
     auto real_input = Buffer<uint16_t>(vec_width, vec_height);
     for (int y = 0; y < real_input.dim(1).extent(); y++) {
         for (int x = 0; x < real_input.dim(0).extent(); x++) {
             real_input(x, y) = float_to_bfloat16_process((static_cast<float>(rand()) / RAND_MAX) * 20.0f - 10.0f);
         }
     }
+    if (!use_random_tensors) {
+        auto pass1_output_path_env = getenv("PASS1_OUTPUT_PATH");
+        std::string pass1_output_path = "/aha/Halide-to-Hardware/apps/hardware_benchmarks/apps/rms_norm_pass2_fp/llama_prefill-rms_norm_pass1_gold/rms_norm_pass1_gold.raw";
+        if (pass1_output_path_env) {
+            pass1_output_path = std::string(pass1_output_path_env);
+        }
+        load_raw_to_halide_buffer(pass1_output_path, real_input);
+        // Print the first few values of the input activation for debugging
+        std::cout << "First few values of input activation:" << std::endl;
+        for (int y = 0; y < std::min(2, real_input.dim(1).extent()); y++) {
+            for (int x = 0; x < std::min(5, real_input.dim(0).extent()); x++) {
+                std::cout << bfloat16_to_float_process(real_input(x, y)) << " ";
+            }
+            std::cout << std::endl;
+        }
+    }
+
 
     auto real_weight = Buffer<uint16_t>(vec_width);
     for (int x = 0; x < real_weight.dim(0).extent(); x++) {
         real_weight(x) = float_to_bfloat16_process((static_cast<float>(rand()) / RAND_MAX) * 20.0f - 10.0f);
+    }
+    if (!use_random_tensors) {
+        load_raw_to_halide_buffer("hw_weight_stencil.raw", real_weight);
+        // Print the first few values of the weight for debugging
+        std::cout << "First few values of weight:" << std::endl;
+        for (int x = 0; x < std::min(5, real_weight.dim(0).extent()); x++) {
+            std::cout << bfloat16_to_float_process(real_weight(x)) << " ";
+        }
+        std::cout << std::endl;
     }
 
     // Real gold output: input * weight (gamma elementwise mul)
@@ -104,12 +138,6 @@ int main(int argc, char **argv) {
     processor.inputs["weight"] = Buffer<uint16_t>(vec_width, vec_height);
     processor.output = Buffer<uint16_t>(vec_width, vec_height);
 
-    auto real_input_env = getenv("USE_REAL_INPUT");
-    bool use_random_tensors = true;
-    if (real_input_env && strcmp(real_input_env, "1") == 0) {
-        use_random_tensors = false;
-    }
-
 
     if (use_random_tensors) {
         // Use random tensors
@@ -118,20 +146,20 @@ int main(int argc, char **argv) {
         save_halide_buffer_to_raw(real_weight, "bin/weight_host_stencil.raw");
     } else {
         int ret = 0;
-        auto pass2_output_path_env = getenv("PASS2_OUTPUT_PATH");
-        std::string pass2_output_path = "/aha/Halide-to-Hardware/apps/hardware_benchmarks/apps/rms_norm_pass2_fp/bert-layer_norm_pass2_gold/layer_norm_pass2_gold_kernel0.raw";
-        if (pass2_output_path_env) {
-            pass2_output_path = std::string(pass2_output_path_env);
+        auto pass1_output_path_env = getenv("PASS1_OUTPUT_PATH");
+        std::string pass1_output_path = "/aha/Halide-to-Hardware/apps/hardware_benchmarks/apps/rms_norm_pass2_fp/llama_prefill-rms_norm_pass1_gold/rms_norm_pass1_gold.raw";
+        if (pass1_output_path_env) {
+            pass1_output_path = std::string(pass1_output_path_env);
         }
 
-        ret = system(("cp " + pass2_output_path + " bin/input_host_stencil.raw").c_str());
+        ret = system(("cp " + pass1_output_path + " bin/input_host_stencil.raw").c_str());
         if (ret != 0) {
-            std::cerr << "Error: Failed to copy pass2 input raw to bin folder. "
-                        "The pass2 input raw should have been produced by layer_norm_pass2 layer and saved by the user"
+            std::cerr << "Error: Failed to copy pass1 input raw to bin folder. "
+                        "The pass1 input raw should have been produced by layer_norm_pass1 layer and saved by the user"
                         "(system call returned " << ret << ")" << std::endl;
             return 1;
         }
-        std::cout << "Copying pre-existing " << pass2_output_path << " to bin/input_host_stencil.raw" << std::endl;
+        std::cout << "Copying pre-existing " << pass1_output_path << " to bin/input_host_stencil.raw" << std::endl;
 
         // Copy the pre-existing raw file into the bin folder for now
         ret = system("cp hw_weight_stencil.raw bin/weight_host_stencil.raw");
