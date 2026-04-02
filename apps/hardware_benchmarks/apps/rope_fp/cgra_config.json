@@ -1,0 +1,37 @@
+{
+  "IOs": {
+    "inputs": [
+      {
+        "name": "hw_input",
+        "bitwidth": 16,
+        "shape": [64, 512, 32],
+        "pixels_per_cycle": 1,
+        "datafile": "bin/input_host_stencil.raw"
+      },
+      {
+        "name": "hw_cos",
+        "bitwidth": 16,
+        "shape": [64, 512, 1],
+        "pixels_per_cycle": 1,
+        "datafile": "bin/cos_host_stencil.raw"
+      },
+      {
+        "name": "hw_sin",
+        "bitwidth": 16,
+        "shape": [64, 512, 1],
+        "pixels_per_cycle": 1,
+        "datafile": "bin/sin_host_stencil.raw"
+      }
+    ],
+    "output": {
+      "name": "hw_output",
+      "bitwidth": 16,
+      "shape": [64, 512, 32],
+      "pixels_per_cycle": 1,
+      "datafile": "bin/hw_output.raw"
+    }
+  },
+  "testing": {
+    "total_cycles": 40000
+  }
+}
