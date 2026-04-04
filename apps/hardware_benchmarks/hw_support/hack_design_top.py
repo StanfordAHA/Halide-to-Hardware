@@ -41,6 +41,7 @@ APPS_NEEDING_HACKS = [
     "fully_connected_layer_fp",
     "tanh_fp",
     "pe_mem_flush_test",
+    "rope_fp",
 ]
 
 
@@ -8261,6 +8262,27 @@ class SelectedDesignHacker:
 
         with open(design_meta_path, "w") as f:
             json.dump(design_meta, f, indent=2)
+
+    def hack_for_rope_fp_rv(self, json_path, bin_path):
+        """
+        Replace the Halide-generated design_top.json with a strait-generated
+        RoPE graph that routes through input/sin/cos/output buffer MEMs and
+        uses fp_mul, fp_sub, fp_add PEs.
+
+        Reads glb_i (== glb_o) from HALIDE_GEN_ARGS to determine unroll factor.
+        Shape is derived from head_dim_half, seq_len, n_heads in halide_gen_args.
+        """
+        from strait.coreir_backend.templates.rope_bf16 import emit_rope_bf16_design
+
+        unroll = int(self.halide_gen_args_dict.get("glb_i", 16))
+        head_dim_half = int(self.halide_gen_args_dict.get("head_dim_half", 32))
+        seq_len = int(self.halide_gen_args_dict.get("seq_len", 512))
+        n_heads = int(self.halide_gen_args_dict.get("n_heads", 32))
+
+        print(f"\033[94m[INFO] Generating strait RoPE design: "
+              f"unroll={unroll}, (head_dim_half={head_dim_half}, seq_len={seq_len}, n_heads={n_heads})\033[0m")
+        emit_rope_bf16_design(unroll, head_dim_half, seq_len, n_heads, bin_path)
+        print(f"\033[92m[INFO] Replaced design_top.json at {json_path}\033[0m")
 
 class GlobalDesignHacker:
     """
