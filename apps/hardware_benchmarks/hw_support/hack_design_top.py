@@ -8838,6 +8838,41 @@ class SelectedDesignHacker:
         seq_len = int(self.halide_gen_args_dict.get("seq_len", 64))
         self._emit_strait_nop_design(json_path, bin_path, hidden_dim * seq_len)
 
+    def _emit_strait_psum_reduction_design(self, json_path, bin_path, tensor_size):
+        """
+        Shared helper for zircon_psum_reduction_fp variants: select unroll per E64 env vars,
+        emit the strait elementwise_add_bf16 design_top.json in mu_plus_glb mode, and verify IO names.
+        """
+        from strait.coreir_backend.templates.elementwise_add_bf16 import emit_elementwise_add_bf16_design
+
+        myunroll = int(self.halide_gen_args_dict.get("myunroll", 1))
+        myunroll_E64 = int(self.halide_gen_args_dict.get("myunroll_E64", 16))
+        myunroll_E64_MB = int(self.halide_gen_args_dict.get("myunroll_E64_MB", 32))
+        if os.environ.get("E64_MULTI_BANK_MODE_ON", "0") == "1":
+            unroll = myunroll_E64_MB
+        elif os.environ.get("E64_MODE_ON", "0") == "1":
+            unroll = myunroll_E64
+        else:
+            unroll = myunroll
+
+        print(f"\033[94m[INFO] Generating strait PSUM reduction design: unroll={unroll}, tensor_size={tensor_size}\033[0m")
+        emit_elementwise_add_bf16_design(unroll, tensor_size, bin_path, mode="mu_plus_glb")
+        print(f"\033[92m[INFO] Replaced design_top.json at {json_path}\033[0m")
+
+        self._assert_strait_names_match_halide_meta(bin_path)
+
+    def hack_for_zircon_psum_reduction_fp_rv(self, json_path, bin_path):
+        """3D psum reduction: tensor_size = n_oc * out_img * out_img."""
+        out_img = int(self.halide_gen_args_dict.get("out_img", 56))
+        n_oc = int(self.halide_gen_args_dict.get("n_oc", 64))
+        self._emit_strait_psum_reduction_design(json_path, bin_path, n_oc * out_img * out_img)
+
+    def hack_for_zircon_2d_psum_reduction_fp_rv(self, json_path, bin_path):
+        """2D psum reduction: tensor_size = hidden_dim * seq_len."""
+        hidden_dim = int(self.halide_gen_args_dict.get("hidden_dim", 128))
+        seq_len = int(self.halide_gen_args_dict.get("seq_len", 64))
+        self._emit_strait_psum_reduction_design(json_path, bin_path, hidden_dim * seq_len)
+
     def _assert_strait_names_match_halide_meta(self, bin_path):
         """
         Fail if logical IO names in strait's design_top.json diverge from the
