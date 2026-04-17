@@ -42,7 +42,6 @@ APPS_NEEDING_HACKS = [
     "fully_connected_layer_fp",
     "tanh_fp",
     "pe_mem_flush_test",
-    "rope_fp",
 ]
 
 
@@ -191,13 +190,14 @@ class SelectedDesignHacker:
         :param testname: Name of the test
         :param json_path: Path to the JSON file (input & output in-place)
         """
-        if testname not in self.hack_apps:
+        use_strait_coreir = os.getenv("USE_STRAIT_COREIR", "0") == "1"
+        if testname not in self.hack_apps and not use_strait_coreir:
             print(
-                f"\033[92mSkipping selected hack for '{testname}', not in hack list: {self.hack_apps}\033[0m"
+                f"\033[92m[INFO] Skipping selected hack for '{testname}', not in hack list: {self.hack_apps}\033[0m"
             )
             return
 
-        print(f"\033[94mApplying hack for '{testname}'...\033[0m")
+        print(f"\033[94m[INFO] Applying hack for '{testname}'...\033[0m")
 
         # Apply different hacks based on whether using rv or static
         use_rv = os.getenv("DENSE_READY_VALID", "0") != "0"
@@ -8800,6 +8800,59 @@ class SelectedDesignHacker:
               f"unroll={unroll}, (head_dim_half={head_dim_half}, seq_len={seq_len}, n_heads={n_heads})\033[0m")
         emit_rope_bf16_design(unroll, head_dim_half, seq_len, n_heads, bin_path)
         print(f"\033[92m[INFO] Replaced design_top.json at {json_path}\033[0m")
+
+        self._assert_strait_names_match_halide_meta(bin_path)
+    
+    def hack_for_zircon_nop_rv(self, json_path, bin_path):
+        """
+        Replace the Halide-generated design_top.json with a strait-generated
+        NOP passthrough graph that directly wires input IOs to output IOs.
+
+        Reads unroll and tensor_size from HALIDE_GEN_ARGS.
+        """
+        from strait.coreir_backend.templates.nop_bf16 import emit_nop_bf16_design
+
+        myunroll = int(self.halide_gen_args_dict.get("myunroll", 1))
+        myunroll_E64 = int(self.halide_gen_args_dict.get("myunroll_E64", 16))
+        myunroll_E64_MB = int(self.halide_gen_args_dict.get("myunroll_E64_MB", 32))
+        if os.environ.get("E64_MULTI_BANK_MODE_ON", "0") == "1":
+            unroll = myunroll_E64_MB
+        elif os.environ.get("E64_MODE_ON", "0") == "1":
+            unroll = myunroll_E64
+        else:
+            unroll = myunroll
+
+        out_img = int(self.halide_gen_args_dict.get("out_img", 14))
+        n_oc = int(self.halide_gen_args_dict.get("n_oc", 256))
+        tensor_size = n_oc * out_img * out_img
+
+        print(f"\033[94m[INFO] Generating strait NOP design: unroll={unroll}, tensor_size={tensor_size} (out_img={out_img}, n_oc={n_oc})\033[0m")
+        emit_nop_bf16_design(unroll, tensor_size, bin_path)
+        print(f"\033[92m[INFO] Replaced design_top.json at {json_path}\033[0m")
+
+        self._assert_strait_names_match_halide_meta(bin_path)
+
+    def _assert_strait_names_match_halide_meta(self, bin_path):
+        """
+        Fail if logical IO names in strait's design_top.json diverge from the
+        Halide-emitted design_meta_halide.json. Enforces that strait templates
+        follow Halide's convention so parse_design_meta.findIO
+        can resolve IO instances and the correct .raw files feed the correct
+        ports at runtime.
+        """
+        from strait.coreir_backend.coreir_backend import _io_logical_names_from_design_top
+
+        strait_in, strait_out = _io_logical_names_from_design_top(os.path.join(bin_path, "design_top.json"))
+        with open(os.path.join(bin_path, "design_meta_halide.json")) as f:
+            meta = json.load(f)
+        halide_in = {e["name"] for e in meta["IOs"].get("inputs", [])} | {e["name"] for e in meta["IOs"].get("mu_inputs", [])}
+        halide_out = {e["name"] for e in meta["IOs"].get("outputs", [])}
+
+        if set(strait_in) != halide_in or set(strait_out) != halide_out:
+            details = f"inputs strait={sorted(set(strait_in))} halide={sorted(halide_in)}; outputs strait={sorted(set(strait_out))} halide={sorted(halide_out)}"
+            raise AssertionError(f"\033[91m[ERROR] strait/halide IO name mismatch: {details}. Align strait template's io16[in]_<name>_clkwrk_... with Halide Func names.\033[0m")
+        print(f"\033[92m[INFO] strait/halide IO names agree (inputs={sorted(set(strait_in))}, outputs={sorted(set(strait_out))})\033[0m")
+
 
 class GlobalDesignHacker:
     """

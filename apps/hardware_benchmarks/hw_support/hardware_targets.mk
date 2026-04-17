@@ -249,12 +249,12 @@ map: $(BIN)/clockwork_codegen
 	python $(HWSUPPORT)/hack_design_top.py --testname $(TESTNAME) --design_top_json $(BIN)/map_result/$(TESTNAME)/$(TESTNAME)_to_metamapper.json --design_meta_halide_json $(BIN)/design_meta_halide.json --bin_dir $(BIN)
 	cp $(BIN)/map_result/$(TESTNAME)/$(TESTNAME)_to_metamapper.json $(BIN)/design_top.json
 
-# Strait-generated coreir: skip clockwork_codegen (strait template produces design_top.json
-# via hack_design_top.py), but keep metamapper, header copies, and other steps.
-strait-map: $(BIN)/clockwork_codegen
+# Strait-generated coreir: design_top.json is produced by a strait template
+# invoked from hack_design_top.py. The Halide pipeline still runs beforehand
+# so that .raw tensors and design_meta_halide.json are available.
+# Skips clockwork_codegen, metamapper, and the sed rename of metamapper output.
+strait-map:
 	python $(HWSUPPORT)/raw2txt.py $(BIN)
-	python $(METAMAPPER_PATH)/scripts/map_$(META_TARGET).py $(BIN)/$(TESTNAME)_compute.json
-	sed -i -e 's/_mapped//g' $(BIN)/$(TESTNAME)_compute_mapped.json
 	cp $(METAMAPPER_PATH)/libs/*_header.json $(BIN)/ && cp $(METAMAPPER_PATH)/libs/*_header.json $(CLOCKWORK_PATH)/ && cp $(METAMAPPER_PATH)/libs/*_header.json $(METAMAPPER_PATH)/../garnet/headers/
 	python $(HWSUPPORT)/hack_design_top.py --testname $(TESTNAME) --design_top_json $(BIN)/design_top.json --design_meta_halide_json $(BIN)/design_meta_halide.json --bin_dir $(BIN)
 
@@ -534,6 +534,16 @@ run-clockwork $(BIN)/output_clockwork.$(EXT) $(BIN)/design_meta_halide.json: $(B
 	@-mkdir -p $(BIN)
 	$(MAKE) $(BIN)/process WITH_CLOCKWORK=1
 	$(HALIDE_GEN_ARGS) EXT=$(EXT) $(BIN)/process run clockwork input.png $(HALIDE_DEBUG_REDIRECT)
+
+# Strait-flow variant of run-clockwork: drops the $(BIN)/process prerequisite to
+# avoid the redundant stub process build (without WITH_CLOCKWORK). Also converts
+# .leraw outputs into big-endian .raw via existing rawio + pattern rules.
+strait-run-clockwork: $(BIN)/clockwork_testscript.o
+	@-mkdir -p $(BIN)
+	$(MAKE) $(BIN)/process WITH_CLOCKWORK=1
+	$(HALIDE_GEN_ARGS) EXT=$(EXT) $(BIN)/process run clockwork input.png $(HALIDE_DEBUG_REDIRECT)
+	$(MAKE) rawio
+	$(MAKE) $(BIN)/hw_output.raw
 
 run-verilog: $(BIN)/top.v $(BIN)/input.raw
 	@-mkdir -p $(BIN)
