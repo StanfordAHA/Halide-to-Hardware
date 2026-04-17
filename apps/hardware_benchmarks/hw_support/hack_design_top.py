@@ -8803,12 +8803,10 @@ class SelectedDesignHacker:
 
         self._assert_strait_names_match_halide_meta(bin_path)
     
-    def hack_for_zircon_nop_rv(self, json_path, bin_path):
+    def _emit_strait_nop_design(self, json_path, bin_path, tensor_size):
         """
-        Replace the Halide-generated design_top.json with a strait-generated
-        NOP passthrough graph that directly wires input IOs to output IOs.
-
-        Reads unroll and tensor_size from HALIDE_GEN_ARGS.
+        Shared helper for zircon_nop variants: select unroll per E64 env vars,
+        emit the strait nop_bf16 design_top.json, and verify IO names.
         """
         from strait.coreir_backend.templates.nop_bf16 import emit_nop_bf16_design
 
@@ -8822,15 +8820,23 @@ class SelectedDesignHacker:
         else:
             unroll = myunroll
 
-        out_img = int(self.halide_gen_args_dict.get("out_img", 14))
-        n_oc = int(self.halide_gen_args_dict.get("n_oc", 256))
-        tensor_size = n_oc * out_img * out_img
-
-        print(f"\033[94m[INFO] Generating strait NOP design: unroll={unroll}, tensor_size={tensor_size} (out_img={out_img}, n_oc={n_oc})\033[0m")
+        print(f"\033[94m[INFO] Generating strait NOP design: unroll={unroll}, tensor_size={tensor_size}\033[0m")
         emit_nop_bf16_design(unroll, tensor_size, bin_path)
         print(f"\033[92m[INFO] Replaced design_top.json at {json_path}\033[0m")
 
         self._assert_strait_names_match_halide_meta(bin_path)
+
+    def hack_for_zircon_nop_rv(self, json_path, bin_path):
+        """3D nop: tensor_size = n_oc * out_img * out_img."""
+        out_img = int(self.halide_gen_args_dict.get("out_img", 14))
+        n_oc = int(self.halide_gen_args_dict.get("n_oc", 256))
+        self._emit_strait_nop_design(json_path, bin_path, n_oc * out_img * out_img)
+
+    def hack_for_zircon_2d_nop_rv(self, json_path, bin_path):
+        """2D nop: tensor_size = hidden_dim * seq_len."""
+        hidden_dim = int(self.halide_gen_args_dict.get("hidden_dim", 128))
+        seq_len = int(self.halide_gen_args_dict.get("seq_len", 64))
+        self._emit_strait_nop_design(json_path, bin_path, hidden_dim * seq_len)
 
     def _assert_strait_names_match_halide_meta(self, bin_path):
         """
