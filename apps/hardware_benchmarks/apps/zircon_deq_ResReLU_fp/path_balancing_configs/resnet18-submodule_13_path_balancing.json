@@ -1,162 +1,114 @@
 {
     "balance_lengths": {
-        "p80": 8,
-        "p38": 8,
-        "p71": 2,
-        "p69": 8,
-        "p2": 7,
-        "p5": 2,
-        "p3": 7,
-        "p86": 7,
-        "p89": 4,
-        "p87": 7,
-        "p26": 7,
-        "p35": 2,
-        "p50": 2,
-        "p44": 2,
-        "p42": 4,
-        "p53": 4,
-        "p56": 16,
-        "p59": 4,
-        "p62": 14,
-        "p74": 14,
-        "p77": 2,
-        "p65": 2,
-        "p63": 7,
-        "p68": 2,
-        "p66": 7,
-        "p11": 4,
-        "p20": 2,
-        "p18": 4,
-        "p23": 2,
-        "p21": 8,
-        "p14": 2,
-        "p17": 2,
-        "p15": 7,
-        "p92": 2
+        "p58": 8,
+        "p44": 8,
+        "p55": 2,
+        "p23": 8,
+        "p32": 7,
+        "p33": 2,
+        "p1": 7,
+        "p60": 7,
+        "p61": 4,
+        "p29": 7,
+        "p40": 7,
+        "p43": 2,
+        "p48": 2,
+        "p46": 2,
+        "p14": 4,
+        "p49": 4,
+        "p50": 16,
+        "p51": 4,
+        "p52": 14,
+        "p56": 14,
+        "p57": 2,
+        "p53": 2,
+        "p21": 7,
+        "p54": 2,
+        "p22": 7,
+        "p35": 4,
+        "p38": 2,
+        "p6": 4,
+        "p39": 2,
+        "p7": 8,
+        "p36": 2,
+        "p37": 2,
+        "p5": 7,
+        "p62": 2
     },
     "total_stream_lengths": {
-        "p80": 1568,
-        "p38": 1568,
-        "p71": 1568,
-        "p69": 1568,
-        "p2": 1568,
-        "p5": 1568,
-        "p3": 1568,
-        "p86": 1568,
-        "p89": 1568,
-        "p87": 1568,
-        "p26": 1568,
-        "p35": 1568,
-        "p50": 1568,
+        "p58": 1568,
         "p44": 1568,
-        "p42": 1568,
-        "p53": 1568,
-        "p56": 1568,
-        "p59": 1568,
-        "p62": 1568,
-        "p74": 1568,
-        "p77": 1568,
-        "p65": 1568,
-        "p63": 1568,
-        "p68": 1568,
-        "p66": 1568,
-        "p11": 1568,
-        "p20": 1568,
-        "p18": 1568,
+        "p55": 1568,
         "p23": 1568,
-        "p21": 1568,
+        "p32": 1568,
+        "p33": 1568,
+        "p1": 1568,
+        "p60": 1568,
+        "p61": 1568,
+        "p29": 1568,
+        "p40": 1568,
+        "p43": 1568,
+        "p48": 1568,
+        "p46": 1568,
         "p14": 1568,
-        "p17": 1568,
-        "p15": 1568,
-        "p92": 1568
+        "p49": 1568,
+        "p50": 1568,
+        "p51": 1568,
+        "p52": 1568,
+        "p56": 1568,
+        "p57": 1568,
+        "p53": 1568,
+        "p21": 1568,
+        "p54": 1568,
+        "p22": 1568,
+        "p35": 1568,
+        "p38": 1568,
+        "p6": 1568,
+        "p39": 1568,
+        "p7": 1568,
+        "p36": 1568,
+        "p37": 1568,
+        "p5": 1568,
+        "p62": 1568
     },
     "name_to_id": {
-        "op_hcompute_result_stencil_4$inner_compute$float_max_i3733_i1284": "p80",
-        "op_hcompute_result_stencil_2$inner_compute$float_max_i3481_i1284": "p38",
-        "op_hcompute_result_stencil_3$inner_compute$float_max_i3679_i1284": "p71",
-        "op_hcompute_result_stencil_3$inner_compute$float_DW_fp_add_i3677_i792": "p69",
-        "op_hcompute_result_stencil$inner_compute$float_max_i3265_i1284": "p2",
-        "op_hcompute_result_stencil_1$inner_compute$float_max_i3283_i1284": "p5",
-        "op_hcompute_result_stencil_1$inner_compute$float_DW_fp_add_i3281_i792": "p3",
-        "op_hcompute_result_stencil_6$inner_compute$float_max_i3769_i1284": "p86",
-        "op_hcompute_result_stencil_7$inner_compute$float_max_i3787_i1284": "p89",
-        "op_hcompute_result_stencil_7$inner_compute$float_DW_fp_add_i3785_i792": "p87",
-        "op_hcompute_result_stencil_16$inner_compute$float_max_i3409_i1284": "p26",
-        "op_hcompute_result_stencil_19$inner_compute$float_max_i3463_i1284": "p35",
-        "op_hcompute_result_stencil_23$inner_compute$float_max_i3553_i1284": "p50",
-        "op_hcompute_result_stencil_21$inner_compute$float_max_i3517_i1284": "p44",
-        "op_hcompute_result_stencil_21$inner_compute$float_DW_fp_add_i3515_i792": "p42",
-        "op_hcompute_result_stencil_24$inner_compute$float_max_i3571_i1284": "p53",
-        "op_hcompute_result_stencil_25$inner_compute$float_max_i3589_i1284": "p56",
-        "op_hcompute_result_stencil_26$inner_compute$float_max_i3607_i1284": "p59",
-        "op_hcompute_result_stencil_27$inner_compute$float_max_i3625_i1284": "p62",
-        "op_hcompute_result_stencil_30$inner_compute$float_max_i3697_i1284": "p74",
-        "op_hcompute_result_stencil_31$inner_compute$float_max_i3715_i1284": "p77",
-        "op_hcompute_result_stencil_28$inner_compute$float_max_i3643_i1284": "p65",
-        "op_hcompute_result_stencil_28$inner_compute$float_DW_fp_add_i3641_i792": "p63",
-        "op_hcompute_result_stencil_29$inner_compute$float_max_i3661_i1284": "p68",
-        "op_hcompute_result_stencil_29$inner_compute$float_DW_fp_add_i3659_i792": "p66",
-        "op_hcompute_result_stencil_11$inner_compute$float_max_i3319_i1284": "p11",
-        "op_hcompute_result_stencil_14$inner_compute$float_max_i3373_i1284": "p20",
-        "op_hcompute_result_stencil_14$inner_compute$float_DW_fp_add_i3371_i792": "p18",
-        "op_hcompute_result_stencil_15$inner_compute$float_max_i3391_i1284": "p23",
-        "op_hcompute_result_stencil_15$inner_compute$float_DW_fp_add_i3389_i792": "p21",
-        "op_hcompute_result_stencil_12$inner_compute$float_max_i3337_i1284": "p14",
-        "op_hcompute_result_stencil_13$inner_compute$float_max_i3355_i1284": "p17",
-        "op_hcompute_result_stencil_13$inner_compute$float_DW_fp_add_i3353_i792": "p15",
-        "op_hcompute_result_stencil_8$inner_compute$float_max_i3805_i1284": "p92"
+        "max_pe_4": "p58",
+        "max_pe_2": "p44",
+        "max_pe_3": "p55",
+        "add_pe_3": "p23",
+        "max_pe_0": "p32",
+        "max_pe_1": "p33",
+        "add_pe_1": "p1",
+        "max_pe_6": "p60",
+        "max_pe_7": "p61",
+        "add_pe_7": "p29",
+        "max_pe_16": "p40",
+        "max_pe_19": "p43",
+        "max_pe_23": "p48",
+        "max_pe_21": "p46",
+        "add_pe_21": "p14",
+        "max_pe_24": "p49",
+        "max_pe_25": "p50",
+        "max_pe_26": "p51",
+        "max_pe_27": "p52",
+        "max_pe_30": "p56",
+        "max_pe_31": "p57",
+        "max_pe_28": "p53",
+        "add_pe_28": "p21",
+        "max_pe_29": "p54",
+        "add_pe_29": "p22",
+        "max_pe_11": "p35",
+        "max_pe_14": "p38",
+        "add_pe_14": "p6",
+        "max_pe_15": "p39",
+        "add_pe_15": "p7",
+        "max_pe_12": "p36",
+        "max_pe_13": "p37",
+        "add_pe_13": "p5",
+        "max_pe_8": "p62"
     },
     "pe_to_pond": {
-        "p80": [
-            true,
-            ""
-        ],
-        "p38": [
-            true,
-            ""
-        ],
-        "p71": [
-            true,
-            ""
-        ],
-        "p69": [
-            true,
-            ""
-        ],
-        "p2": [
-            true,
-            ""
-        ],
-        "p5": [
-            true,
-            ""
-        ],
-        "p3": [
-            true,
-            ""
-        ],
-        "p86": [
-            true,
-            ""
-        ],
-        "p89": [
-            true,
-            ""
-        ],
-        "p87": [
-            true,
-            ""
-        ],
-        "p26": [
-            true,
-            ""
-        ],
-        "p35": [
-            true,
-            ""
-        ],
-        "p50": [
+        "p58": [
             true,
             ""
         ],
@@ -164,59 +116,7 @@
             true,
             ""
         ],
-        "p42": [
-            true,
-            ""
-        ],
-        "p53": [
-            true,
-            ""
-        ],
-        "p56": [
-            true,
-            ""
-        ],
-        "p59": [
-            true,
-            ""
-        ],
-        "p62": [
-            true,
-            ""
-        ],
-        "p74": [
-            true,
-            ""
-        ],
-        "p77": [
-            true,
-            ""
-        ],
-        "p65": [
-            true,
-            ""
-        ],
-        "p63": [
-            true,
-            ""
-        ],
-        "p68": [
-            true,
-            ""
-        ],
-        "p66": [
-            true,
-            ""
-        ],
-        "p11": [
-            true,
-            ""
-        ],
-        "p20": [
-            true,
-            ""
-        ],
-        "p18": [
+        "p55": [
             true,
             ""
         ],
@@ -224,7 +124,43 @@
             true,
             ""
         ],
-        "p21": [
+        "p32": [
+            true,
+            ""
+        ],
+        "p33": [
+            true,
+            ""
+        ],
+        "p1": [
+            true,
+            ""
+        ],
+        "p60": [
+            true,
+            ""
+        ],
+        "p61": [
+            true,
+            ""
+        ],
+        "p29": [
+            true,
+            ""
+        ],
+        "p40": [
+            true,
+            ""
+        ],
+        "p43": [
+            true,
+            ""
+        ],
+        "p48": [
+            true,
+            ""
+        ],
+        "p46": [
             true,
             ""
         ],
@@ -232,15 +168,79 @@
             true,
             ""
         ],
-        "p17": [
+        "p49": [
             true,
             ""
         ],
-        "p15": [
+        "p50": [
             true,
             ""
         ],
-        "p92": [
+        "p51": [
+            true,
+            ""
+        ],
+        "p52": [
+            true,
+            ""
+        ],
+        "p56": [
+            true,
+            ""
+        ],
+        "p57": [
+            true,
+            ""
+        ],
+        "p53": [
+            true,
+            ""
+        ],
+        "p21": [
+            true,
+            ""
+        ],
+        "p54": [
+            true,
+            ""
+        ],
+        "p22": [
+            true,
+            ""
+        ],
+        "p35": [
+            true,
+            ""
+        ],
+        "p38": [
+            true,
+            ""
+        ],
+        "p6": [
+            true,
+            ""
+        ],
+        "p39": [
+            true,
+            ""
+        ],
+        "p7": [
+            true,
+            ""
+        ],
+        "p36": [
+            true,
+            ""
+        ],
+        "p37": [
+            true,
+            ""
+        ],
+        "p5": [
+            true,
+            ""
+        ],
+        "p62": [
             true,
             ""
         ]

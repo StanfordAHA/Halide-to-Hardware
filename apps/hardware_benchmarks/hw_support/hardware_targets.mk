@@ -472,7 +472,11 @@ $(BIN)/%.raw: $(BIN)/%.$(EXT)
   fi
 
 $(BIN)/%.raw: $(BIN)/%.leraw
-	dd conv=swab <$(BIN)/$*.leraw >$(BIN)/$*.raw
+	@if [ -e $@ ]; then \
+	    echo "Skipping .leraw -> .raw conversion: $@ already exists"; \
+	else \
+	    dd conv=swab <$< >$@; \
+	fi
 
 io inout inputs inputfiles rawio rawios ioraw ioraws : $(BIN)/design_meta_halide.json
 	python $(HWSUPPORT)/generate_raw_files.py $^

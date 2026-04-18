@@ -8873,6 +8873,279 @@ class SelectedDesignHacker:
         seq_len = int(self.halide_gen_args_dict.get("seq_len", 64))
         self._emit_strait_psum_reduction_design(json_path, bin_path, hidden_dim * seq_len)
 
+    def hack_for_zircon_dequant_fp_rv(self, json_path, bin_path):
+        """
+        Dequantize (MU input * scalar constant): emit strait elementwise_mul_bf16 in mu_x_const mode.
+
+        tensor_size = n_oc * out_img * out_img. The scalar dequant constant comes from the
+        DEQUANT_SCALE env var (matches the Halide generator default 0.00006341934204101562).
+        """
+        from strait.coreir_backend.templates.elementwise_mul_bf16 import emit_elementwise_mul_bf16_design
+
+        myunroll = int(self.halide_gen_args_dict.get("myunroll", 1))
+        myunroll_E64 = int(self.halide_gen_args_dict.get("myunroll_E64", 16))
+        myunroll_E64_MB = int(self.halide_gen_args_dict.get("myunroll_E64_MB", 32))
+        if os.environ.get("E64_MULTI_BANK_MODE_ON", "0") == "1":
+            unroll = myunroll_E64_MB
+        elif os.environ.get("E64_MODE_ON", "0") == "1":
+            unroll = myunroll_E64
+        else:
+            unroll = myunroll
+
+        out_img = int(self.halide_gen_args_dict.get("out_img", 56))
+        n_oc = int(self.halide_gen_args_dict.get("n_oc", 64))
+        tensor_size = n_oc * out_img * out_img
+        dequant_scale = float(os.environ.get("DEQUANT_SCALE", 0.00006341934204101562))
+
+        print(f"\033[94m[INFO] Generating strait dequant design: unroll={unroll}, tensor_size={tensor_size} (out_img={out_img}, n_oc={n_oc}), dequant_scale={dequant_scale}\033[0m")
+        emit_elementwise_mul_bf16_design(unroll, tensor_size, bin_path, mode="mu_x_const", mul_const_val_bf16=dequant_scale)
+        print(f"\033[92m[INFO] Replaced design_top.json at {json_path}\033[0m")
+
+        self._assert_strait_names_match_halide_meta(bin_path)
+
+    def hack_for_zircon_scale_add_fp_rv(self, json_path, bin_path):
+        """
+        Scale-then-add ((MU_input * attn_scale) + GLB_attn_mask_input): emit strait
+        elementwise_mul_add_bf16 in mu_x_const_plus_vector mode.
+
+        tensor_size = seq_len * seq_len. The scalar attn_scale comes from the ATTN_SCALE env var
+        (set at runtime by map.py when ATTENTION_SCALING=1; Halide generator default is 0.5).
+        """
+        from strait.coreir_backend.templates.elementwise_mul_add_bf16 import emit_elementwise_mul_add_bf16_design
+
+        myunroll = int(self.halide_gen_args_dict.get("myunroll", 4))
+        myunroll_E64 = int(self.halide_gen_args_dict.get("myunroll_E64", 16))
+        myunroll_E64_MB = int(self.halide_gen_args_dict.get("myunroll_E64_MB", 16))
+        if os.environ.get("E64_MULTI_BANK_MODE_ON", "0") == "1":
+            unroll = myunroll_E64_MB
+        elif os.environ.get("E64_MODE_ON", "0") == "1":
+            unroll = myunroll_E64
+        else:
+            unroll = myunroll
+
+        seq_len = int(self.halide_gen_args_dict.get("seq_len", 64))
+        tensor_size = seq_len * seq_len
+        attn_scale = float(os.environ.get("ATTN_SCALE", 0.5))
+
+        print(f"\033[94m[INFO] Generating strait scale_add design: unroll={unroll}, tensor_size={tensor_size} (seq_len={seq_len}), attn_scale={attn_scale}\033[0m")
+        emit_elementwise_mul_add_bf16_design(unroll, tensor_size, bin_path, mode="mu_x_const_plus_vector", mul_const_val_bf16=attn_scale)
+        print(f"\033[92m[INFO] Replaced design_top.json at {json_path}\033[0m")
+
+        self._assert_strait_names_match_halide_meta(bin_path)
+
+    def _emit_strait_mul_add_relu_design(self, json_path, bin_path, tensor_size, mode, mul_const_val_bf16):
+        """
+        Shared helper for mul-add-ReLU variants (zircon_residual_relu_fp, zircon_deq_ResReLU_fp,
+        zircon_dequantize_relu_fp): select unroll per E64 env vars, emit the strait
+        elementwise_mul_add_relu_bf16 design_top.json, and verify IO names.
+        """
+        from strait.coreir_backend.templates.elementwise_mul_add_relu_bf16 import emit_elementwise_mul_add_relu_bf16_design
+
+        myunroll = int(self.halide_gen_args_dict.get("myunroll", 1))
+        myunroll_E64 = int(self.halide_gen_args_dict.get("myunroll_E64", 16))
+        myunroll_E64_MB = int(self.halide_gen_args_dict.get("myunroll_E64_MB", 32))
+        if os.environ.get("E64_MULTI_BANK_MODE_ON", "0") == "1":
+            unroll = myunroll_E64_MB
+        elif os.environ.get("E64_MODE_ON", "0") == "1":
+            unroll = myunroll_E64
+        else:
+            unroll = myunroll
+
+        print(f"\033[94m[INFO] Generating strait mul_add_relu design: mode={mode}, unroll={unroll}, tensor_size={tensor_size}, mul_const={mul_const_val_bf16}\033[0m")
+        emit_elementwise_mul_add_relu_bf16_design(unroll, tensor_size, bin_path, mode=mode, mul_const_val_bf16=mul_const_val_bf16)
+        print(f"\033[92m[INFO] Replaced design_top.json at {json_path}\033[0m")
+
+        self._assert_strait_names_match_halide_meta(bin_path)
+
+    def hack_for_zircon_res_deq_ReLU_quant_fp_rv(self, json_path, bin_path):
+        """
+        Residual-add + ReLU + fused scale + e8m0_quant + bit8_pack
+        (zircon_res_deq_ReLU_quant_fp): emit strait elementwise_add_mul_relu_mul_quant_bf16.
+
+        Per input lane: Halide's optimizer fuses the two muls
+        `max((MU+GLB)*dequant_scale, 0) * quant_scale == (dequant_scale*quant_scale) * max(MU+GLB, 0)`,
+        so the strait template uses a single post-ReLU mul by `scale = dequant_scale*quant_scale`
+        to match the gold flow's 4-PE-per-lane graph. Output lanes = unroll / 2.
+        """
+        from strait.coreir_backend.templates.elementwise_add_relu_mul_quant_bf16 import emit_elementwise_add_mul_relu_mul_quant_bf16_design
+
+        myunroll = int(self.halide_gen_args_dict.get("myunroll", 1))
+        myunroll_E64 = int(self.halide_gen_args_dict.get("myunroll_E64", 16))
+        myunroll_E64_MB = int(self.halide_gen_args_dict.get("myunroll_E64_MB", 32))
+        if os.environ.get("E64_MULTI_BANK_MODE_ON", "0") == "1":
+            unroll = myunroll_E64_MB
+        elif os.environ.get("E64_MODE_ON", "0") == "1":
+            unroll = myunroll_E64
+        else:
+            unroll = myunroll
+
+        out_img = int(self.halide_gen_args_dict.get("out_img", 14))
+        n_oc = int(self.halide_gen_args_dict.get("n_oc", 64))
+        tensor_size = n_oc * out_img * out_img
+        dequant_scale = float(os.environ.get("DEQUANT_SCALE", 0.5))
+        quant_scale = float(os.environ.get("QUANT_SCALE", 0.5))
+        scale = dequant_scale * quant_scale
+
+        print(f"\033[94m[INFO] Generating strait res_deq_ReLU_quant design: unroll={unroll}, tensor_size={tensor_size} (out_img={out_img}, n_oc={n_oc}), scale={scale} (dequant={dequant_scale}, quant={quant_scale})\033[0m")
+        emit_elementwise_add_mul_relu_mul_quant_bf16_design(unroll, tensor_size, bin_path, scale=scale)
+        print(f"\033[92m[INFO] Replaced design_top.json at {json_path}\033[0m")
+
+        self._assert_strait_names_match_halide_meta(bin_path)
+
+    def hack_for_zircon_deq_ResReLU_quant_fp_rv(self, json_path, bin_path):
+        """
+        Dequantize-mul + residual + ReLU + quantize-mul + e8m0_quant + bit8_pack
+        (zircon_deq_ResReLU_quant_fp): emit strait elementwise_mul_add_relu_mul_quant_bf16.
+
+        Per input lane: max(MU * dequant_scale + GLB, 0) * quant_scale -> e8m0_quant(..., 127).
+        Output lanes = unroll / 2 (bit8_pack combines two quantized channels).
+        """
+        from strait.coreir_backend.templates.elementwise_mul_add_relu_mul_quant_bf16 import emit_elementwise_mul_add_relu_mul_quant_bf16_design
+
+        myunroll = int(self.halide_gen_args_dict.get("myunroll", 1))
+        myunroll_E64 = int(self.halide_gen_args_dict.get("myunroll_E64", 16))
+        myunroll_E64_MB = int(self.halide_gen_args_dict.get("myunroll_E64_MB", 32))
+        if os.environ.get("E64_MULTI_BANK_MODE_ON", "0") == "1":
+            unroll = myunroll_E64_MB
+        elif os.environ.get("E64_MODE_ON", "0") == "1":
+            unroll = myunroll_E64
+        else:
+            unroll = myunroll
+
+        out_img = int(self.halide_gen_args_dict.get("out_img", 14))
+        n_oc = int(self.halide_gen_args_dict.get("n_oc", 64))
+        tensor_size = n_oc * out_img * out_img
+        dequant_scale = float(os.environ.get("DEQUANT_SCALE", 0.5))
+        quant_scale = float(os.environ.get("QUANT_SCALE", 0.5))
+
+        print(f"\033[94m[INFO] Generating strait deq_ResReLU_quant design: unroll={unroll}, tensor_size={tensor_size} (out_img={out_img}, n_oc={n_oc}), dequant_scale={dequant_scale}, quant_scale={quant_scale}\033[0m")
+        emit_elementwise_mul_add_relu_mul_quant_bf16_design(
+            unroll, tensor_size, bin_path,
+            dequant_scale=dequant_scale, quant_scale=quant_scale,
+        )
+        print(f"\033[92m[INFO] Replaced design_top.json at {json_path}\033[0m")
+
+        self._assert_strait_names_match_halide_meta(bin_path)
+
+    def hack_for_zircon_deq_q_relu_fp_rv(self, json_path, bin_path):
+        """
+        Dequantize-mul -> ReLU -> e8m0_quant -> bit8_pack (zircon_deq_q_relu_fp): emit strait
+        elementwise_mul_relu_quant_pack_bf16 design_top.json.
+
+        Input MU tensor size = n_oc * out_img * out_img (input lanes = `unroll`).
+        Output lanes = unroll / 2. The mul constant is dequant_scale * quant_scale, both
+        sourced from their respective env vars (Halide generator defaults 0.5 each).
+        """
+        from strait.coreir_backend.templates.elementwise_mul_relu_quant_pack_bf16 import emit_elementwise_mul_relu_quant_pack_bf16_design
+
+        myunroll = int(self.halide_gen_args_dict.get("myunroll", 1))
+        myunroll_E64 = int(self.halide_gen_args_dict.get("myunroll_E64", 16))
+        myunroll_E64_MB = int(self.halide_gen_args_dict.get("myunroll_E64_MB", 32))
+        if os.environ.get("E64_MULTI_BANK_MODE_ON", "0") == "1":
+            unroll = myunroll_E64_MB
+        elif os.environ.get("E64_MODE_ON", "0") == "1":
+            unroll = myunroll_E64
+        else:
+            unroll = myunroll
+
+        out_img = int(self.halide_gen_args_dict.get("out_img", 14))
+        n_oc = int(self.halide_gen_args_dict.get("n_oc", 64))
+        tensor_size = n_oc * out_img * out_img
+        dequant_scale = float(os.environ.get("DEQUANT_SCALE", 0.5))
+        quant_scale = float(os.environ.get("QUANT_SCALE", 0.5))
+        scale = dequant_scale * quant_scale
+
+        print(f"\033[94m[INFO] Generating strait deq_q_relu design: unroll={unroll}, tensor_size={tensor_size} (out_img={out_img}, n_oc={n_oc}), scale={scale} (dequant={dequant_scale}, quant={quant_scale})\033[0m")
+        emit_elementwise_mul_relu_quant_pack_bf16_design(unroll, tensor_size, bin_path, scale=scale)
+        print(f"\033[92m[INFO] Replaced design_top.json at {json_path}\033[0m")
+
+        self._assert_strait_names_match_halide_meta(bin_path)
+
+    def hack_for_zircon_quant_fp_rv(self, json_path, bin_path):
+        """
+        Quantize pipeline (GLB_input * dequant_scale -> e8m0_quant -> bit8_pack): emit strait
+        elementwise_mul_quant_pack_bf16 design_top.json.
+
+        Input tensor size = n_oc * out_img * out_img (unroll input lanes = `unroll`).
+        Output lanes are unroll / 2 (each pack PE combines two quantized inputs).
+        The scalar dequant constant comes from the QUANT_SCALE env var (Halide generator default 0.5).
+        """
+        from strait.coreir_backend.templates.elementwise_mul_quant_pack_bf16 import emit_elementwise_mul_quant_pack_bf16_design
+
+        myunroll = int(self.halide_gen_args_dict.get("myunroll", 2))
+        myunroll_E64 = int(self.halide_gen_args_dict.get("myunroll_E64", 16))
+        myunroll_E64_MB = int(self.halide_gen_args_dict.get("myunroll_E64_MB", 32))
+        if os.environ.get("E64_MULTI_BANK_MODE_ON", "0") == "1":
+            unroll = myunroll_E64_MB
+        elif os.environ.get("E64_MODE_ON", "0") == "1":
+            unroll = myunroll_E64
+        else:
+            unroll = myunroll
+
+        out_img = int(self.halide_gen_args_dict.get("out_img", 14))
+        n_oc = int(self.halide_gen_args_dict.get("n_oc", 64))
+        tensor_size = n_oc * out_img * out_img
+        dequant_scale = float(os.environ.get("QUANT_SCALE", 0.5))
+
+        print(f"\033[94m[INFO] Generating strait quant design: unroll={unroll}, tensor_size={tensor_size} (out_img={out_img}, n_oc={n_oc}), dequant_scale={dequant_scale}\033[0m")
+        emit_elementwise_mul_quant_pack_bf16_design(unroll, tensor_size, bin_path, dequant_scale=dequant_scale)
+        print(f"\033[92m[INFO] Replaced design_top.json at {json_path}\033[0m")
+
+        self._assert_strait_names_match_halide_meta(bin_path)
+
+    def hack_for_zircon_dequantize_relu_fp_rv(self, json_path, bin_path):
+        """
+        Dequantize + ReLU (max(MU_input * scale, 0)): emit strait
+        elementwise_mul_add_relu_bf16 in mu_x_const_relu mode (mul + max, 2 PEs per lane).
+
+        tensor_size = n_oc * out_img * out_img. The scale is hardcoded in the Halide generator
+        (0.000065326690674f); matches that as the default, with DEQUANT_SCALE env var override.
+        """
+        out_img = int(self.halide_gen_args_dict.get("out_img", 56))
+        n_oc = int(self.halide_gen_args_dict.get("n_oc", 64))
+        dequant_scale = float(os.environ.get("DEQUANT_SCALE", 0.000065326690674))
+        self._emit_strait_mul_add_relu_design(
+            json_path, bin_path,
+            tensor_size=n_oc * out_img * out_img,
+            mode="mu_x_const_relu",
+            mul_const_val_bf16=dequant_scale,
+        )
+
+    def hack_for_zircon_residual_relu_fp_rv(self, json_path, bin_path):
+        """
+        Residual-add + ReLU (max(MU_input + GLB_residual_input, 0)): emit strait
+        elementwise_mul_add_relu_bf16 in mu_plus_vector_relu mode (add + max, 2 PEs per lane).
+
+        tensor_size = n_oc * out_img * out_img.
+        """
+        out_img = int(self.halide_gen_args_dict.get("out_img", 56))
+        n_oc = int(self.halide_gen_args_dict.get("n_oc", 64))
+        self._emit_strait_mul_add_relu_design(
+            json_path, bin_path,
+            tensor_size=n_oc * out_img * out_img,
+            mode="mu_plus_vector_relu",
+            mul_const_val_bf16=0.0,
+        )
+
+    def hack_for_zircon_deq_ResReLU_fp_rv(self, json_path, bin_path):
+        """
+        Dequantize + residual-add + ReLU (max(MU_input * dequant_scale + GLB_residual_input, 0)):
+        emit strait elementwise_mul_add_relu_bf16 in mu_x_const_plus_vector_relu mode
+        (mul + add + max, 3 PEs per lane).
+
+        tensor_size = n_oc * out_img * out_img. The scalar dequant constant comes from the
+        DEQUANT_SCALE env var (Halide generator default is 0.5).
+        """
+        out_img = int(self.halide_gen_args_dict.get("out_img", 14))
+        n_oc = int(self.halide_gen_args_dict.get("n_oc", 256))
+        dequant_scale = float(os.environ.get("DEQUANT_SCALE", 0.5))
+        self._emit_strait_mul_add_relu_design(
+            json_path, bin_path,
+            tensor_size=n_oc * out_img * out_img,
+            mode="mu_x_const_plus_vector_relu",
+            mul_const_val_bf16=dequant_scale,
+        )
+
     def _assert_strait_names_match_halide_meta(self, bin_path):
         """
         Fail if logical IO names in strait's design_top.json diverge from the
