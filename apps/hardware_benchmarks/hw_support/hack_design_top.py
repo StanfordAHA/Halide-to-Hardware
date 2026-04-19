@@ -328,7 +328,6 @@ class SelectedDesignHacker:
               f"unroll={unroll}, vec_length={vec_length}, num_vecs={num_vecs}\033[0m")
         emit_reduction_max_bf16_design(
             unroll, vec_length, num_vecs, bin_path,
-            top_module="stable_softmax_pass1_fp",
         )
         print(f"\033[92m[INFO] Replaced design_top.json at {json_path}\033[0m")
 
