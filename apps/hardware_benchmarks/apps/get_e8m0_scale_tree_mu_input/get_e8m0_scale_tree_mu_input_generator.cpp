@@ -139,15 +139,15 @@ public:
             pack_out.compute_at(scale_output_glb, y_glb);
 
             // Unroll output over glb (default 1)
-            hw_scale_output.unroll(y_glb, glb_o);
-            scale_output_glb.unroll(y_cgra, glb_o);
+            hw_scale_output.unroll(y_glb, 1);
+            scale_output_glb.unroll(y_cgra, 1);
 
             // Compute each stage of the reduction tree inside tile_sum.
             for (int s = 1; s <= total_stages; s++) {
-                tree_mu[s].compute_at(scale_output_glb, y_glb).unroll(x);
+                tree_mu[s].compute_at(scale_output_glb, y_glb).unroll(x, 1);
             }
             for (int s = 1; s <= total_stages; s++) {
-                tree_mem[s].compute_at(scale_output_glb, y_glb).unroll(x);
+                tree_mem[s].compute_at(scale_output_glb, y_glb).unroll(x, 1);
             }
 
             // Input buffers tiling schedule for mu input
@@ -159,8 +159,8 @@ public:
                 .reorder(x_cgra, y, x_glb);
 
             // Unroll inputs
-            mu_input_io.unroll(x, mu_i);
-            mu_input_cgra.unroll(x_cgra, mu_i);
+            mu_input_io.unroll(x, 1);
+            mu_input_cgra.unroll(x_cgra, 1);
 
         } else {  // schedule to CPU
             scale_output_cgra.compute_root();

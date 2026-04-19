@@ -157,9 +157,9 @@ public:
             tile_input.reorder(xi, tile, y);
 
             // Unroll input and kernel over glb (default 1)
-            matrix_glb.unroll(x, glb_i);  // unroll glb input for small images
-            vector_glb.unroll(x, glb_i);  // unroll glb input for small images
-            tile_input.unroll(xi, glb_i);  // unroll glb input for small images
+            matrix_glb.unroll(x, 1);  // unroll glb input for small images
+            vector_glb.unroll(x, 1);  // unroll glb input for small images
+            tile_input.unroll(xi, 1);  // unroll glb input for small images
 
         } else {  // schedule to CPU
             output_cgra.compute_root();
