@@ -87,33 +87,33 @@ public:
                 .split(y, y_host, y_glb, vec_height)
                 .reorder(x_glb, y_glb, x_host, y_host)
                 .hw_accelerate(y_glb, y_host);
-            hw_output_mxint8_act.unroll(x_glb, glb_i / 2);
+            hw_output_mxint8_act.unroll(x_glb, 1);
 
             output_mxint8_act_glb.compute_at(hw_output_mxint8_act, y_host)
                 .split(x, x_glb, x_cgra, glb_i / 2)
                 .split(y, y_glb, y_cgra, vec_height)
                 .reorder(x_cgra, y_cgra, x_glb, y_glb);
-            output_mxint8_act_glb.unroll(x_cgra, glb_i / 2);
+            output_mxint8_act_glb.unroll(x_cgra, 1);
 
-            output_mxint8_act_cgra.compute_at(output_mxint8_act_glb, y_glb).unroll(x, glb_i / 2);
+            output_mxint8_act_cgra.compute_at(output_mxint8_act_glb, y_glb).unroll(x, 1);
 
             // Input buffers tiling schedule for input_bf_act
             input_bf_act_host.compute_root().accelerator_input();
-            input_bf_act_glb.compute_at(hw_output_mxint8_act, y_host).unroll(x, glb_i);
+            input_bf_act_glb.compute_at(hw_output_mxint8_act, y_host).unroll(x, 1);
             input_bf_act_cgra.compute_at(output_mxint8_act_glb, y_glb)
                 .split(x, x_glb, x_cgra, glb_i)
                 .split(y, y_glb, y_cgra, vec_height)
                 .reorder(x_cgra, y_cgra, x_glb, y_glb)
-                .unroll(x_cgra, glb_i);
+                .unroll(x_cgra, 1);
 
             // Input buffers tiling schedule for input_scale
             input_scale_host.compute_root().accelerator_input();
-            input_scale_glb.compute_at(hw_output_mxint8_act, y_host).unroll(x, glb_i);
+            input_scale_glb.compute_at(hw_output_mxint8_act, y_host).unroll(x, 1);
             input_scale_cgra.compute_at(output_mxint8_act_glb, y_glb)
                 .split(x, x_glb, x_cgra, glb_i)
                 .split(y, y_glb, y_cgra, vec_height)
                 .reorder(x_cgra, y_cgra, x_glb, y_glb)
-                .unroll(x_cgra, glb_i);
+                .unroll(x_cgra, 1);
 
         } else {  // schedule to CPU
             output_mxint8_act_cgra.compute_root();

@@ -80,7 +80,7 @@ public:
                 .split(y, y_host, y_glb, vec_height)
                 .reorder(x_glb, y_glb, x_host, y_host)
                 .hw_accelerate(y_glb, y_host)
-                .unroll(x_glb, glb_i);
+                .unroll(x_glb, 1);
 
             // L2 loop level
             output_glb.compute_at(hw_output, y_host);
@@ -88,26 +88,26 @@ public:
                 .split(x, x_glb, x_cgra, vec_width)
                 .split(y, y_glb, y_cgra, vec_height)
                 .reorder(x_cgra, y_cgra, x_glb, y_glb)
-                .unroll(x_cgra, glb_i);
+                .unroll(x_cgra, 1);
 
             // L1 loop level
-            output_cgra.compute_at(output_glb, y_glb).unroll(x, glb_i);
+            output_cgra.compute_at(output_glb, y_glb).unroll(x, 1);
 
 
             // Input streaming
             input_host.compute_root().accelerator_input();
-            input_glb.compute_at(hw_output, y_host).unroll(x, glb_i);
-            input_cgra.compute_at(output_glb, y_glb).unroll(x, glb_i);
+            input_glb.compute_at(hw_output, y_host).unroll(x, 1);
+            input_cgra.compute_at(output_glb, y_glb).unroll(x, 1);
 
             // Weight streaming
             weight_host.compute_root().accelerator_input();
-            weight_glb.compute_at(hw_output, y_host).unroll(x, glb_i);
-            weight_cgra.compute_at(output_glb, y_glb).unroll(x, glb_i);
+            weight_glb.compute_at(hw_output, y_host).unroll(x, 1);
+            weight_cgra.compute_at(output_glb, y_glb).unroll(x, 1);
 
             // Bias streaming
             bias_host.compute_root().accelerator_input();
-            bias_glb.compute_at(hw_output, y_host).unroll(x, glb_i);
-            bias_cgra.compute_at(output_glb, y_glb).unroll(x, glb_i);
+            bias_glb.compute_at(hw_output, y_host).unroll(x, 1);
+            bias_cgra.compute_at(output_glb, y_glb).unroll(x, 1);
 
         } else {  // schedule to CPU
             output_cgra.compute_root().unroll(x, glb_i);

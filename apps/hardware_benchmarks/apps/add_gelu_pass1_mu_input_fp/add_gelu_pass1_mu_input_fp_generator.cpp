@@ -22,6 +22,8 @@ public:
     // mu_i determines the input glb unrolling
     GeneratorParam<int> mu_i{ "mu_i", 32 };
 
+    GeneratorParam<float> swish_beta{ "swish_beta", 1.702f };
+
     void generate() {
         /* THE ALGORITHM */
         Var x("x"), y("y");
@@ -42,7 +44,7 @@ public:
         output_add_gelu_upper_cgra(x, y) =
             (mu_input_cgra(x, y) + input_psum0_cgra(x, y)) / (
                 bf16(1.0f) + exp(
-                    bf16(-1.702f) * (mu_input_cgra(x, y) + input_psum0_cgra(x, y))
+                    bf16(-1.0f * swish_beta) * (mu_input_cgra(x, y) + input_psum0_cgra(x, y))
                 )
             );
 
@@ -68,7 +70,7 @@ public:
                 .split(y, y_host, y_glb, vec_height)
                 .reorder(x_glb, y_glb, x_host, y_host)
                 .hw_accelerate(y_glb, y_host)
-                .unroll(x_glb, mu_i);
+                .unroll(x_glb, 1);
 
             // GLB loop level
             output_add_gelu_upper_glb.compute_at(hw_add_gelu_upper_output, y_host);  // global buffer
@@ -76,28 +78,28 @@ public:
                 .split(x, x_glb, x_cgra, vec_width)
                 .split(y, y_glb, y_cgra, vec_height)
                 .reorder(x_cgra, y_cgra, x_glb, y_glb)
-                .unroll(x_cgra, mu_i);
+                .unroll(x_cgra, 1);
 
-            output_add_gelu_upper_cgra.compute_at(output_add_gelu_upper_glb, y_glb).unroll(x, mu_i);
+            output_add_gelu_upper_cgra.compute_at(output_add_gelu_upper_glb, y_glb).unroll(x, 1);
 
             // Input buffers
             mu_input_host.compute_root().accelerator_input();
-            mu_input_glb.compute_at(hw_add_gelu_upper_output, y_host).unroll(x, mu_i);
+            mu_input_glb.compute_at(hw_add_gelu_upper_output, y_host).unroll(x, 1);
             mu_input_cgra
                 .compute_at(output_add_gelu_upper_glb, y_glb)
                 .split(x, x_glb, x_cgra, vec_width)
                 .split(y, y_glb, y_cgra, vec_height)
                 .reorder(x_cgra, y_cgra, x_glb, y_glb)
-                .unroll(x_cgra, mu_i);
+                .unroll(x_cgra, 1);
 
             input_psum0_host.compute_root().accelerator_input();
-            input_psum0_glb.compute_at(hw_add_gelu_upper_output, y_host).unroll(x, mu_i);
+            input_psum0_glb.compute_at(hw_add_gelu_upper_output, y_host).unroll(x, 1);
             input_psum0_cgra
                 .compute_at(output_add_gelu_upper_glb, y_glb)
                 .split(x, x_glb, x_cgra, vec_width)
                 .split(y, y_glb, y_cgra, vec_height)
                 .reorder(x_cgra, y_cgra, x_glb, y_glb)
-                .unroll(x_cgra, mu_i);
+                .unroll(x_cgra, 1);
 
         } else {  // schedule to CPU
             output_add_gelu_upper_cgra.compute_root();

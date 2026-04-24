@@ -74,7 +74,7 @@ public:
                 .split(y, y_host, y_glb, vec_height)
                 .reorder(x_glb, y_glb, x_host, y_host)
                 .hw_accelerate(y_glb, y_host);
-            hw_output.unroll(x_glb, glb_i);
+            hw_output.unroll(x_glb, 1);
 
             // GLB loop level
             output_glb.compute_at(hw_output, y_host);  // global buffer
@@ -82,26 +82,26 @@ public:
                 .split(x, x_glb, x_cgra, vec_width)
                 .split(y, y_glb, y_cgra, vec_height)
                 .reorder(x_cgra, y_cgra, x_glb, y_glb);
-            output_glb.unroll(x_cgra, glb_i);
+            output_glb.unroll(x_cgra, 1);
 
-            output_cgra.compute_at(output_glb, y_glb).unroll(x, glb_i);
+            output_cgra.compute_at(output_glb, y_glb).unroll(x, 1);
 
             // Input buffers
             input_host.compute_root().accelerator_input();
-            input_glb.compute_at(hw_output, y_host).unroll(x, glb_i);
+            input_glb.compute_at(hw_output, y_host).unroll(x, 1);
             input_cgra.compute_at(output_glb, y_glb)
                     .split(x, x_glb, x_cgra, vec_width)
                     .split(y, y_glb, y_cgra, vec_height)
                     .reorder(x_cgra, y_cgra, x_glb, y_glb)
-                    .unroll(x_cgra, glb_i);
+                    .unroll(x_cgra, 1);
 
             vec_max_host.compute_root().accelerator_input();
-            vec_max_glb.compute_at(hw_output, y_host).unroll(x, glb_i);
+            vec_max_glb.compute_at(hw_output, y_host).unroll(x, 1);
             vec_max_cgra.compute_at(output_glb, y_glb)
                     .split(x, x_glb, x_cgra, vec_width)
                     .split(y, y_glb, y_cgra, vec_height)
                     .reorder(x_cgra, y_cgra, x_glb, y_glb)
-                    .unroll(x_cgra, glb_i);
+                    .unroll(x_cgra, 1);
 
         } else {  // schedule to CPU
             output_cgra.compute_root();
