@@ -33,20 +33,10 @@ include ../../hw_support/Makefile.inc
 # RDAI_PLATFORM_RUNTIME         : RDAI platform runtime to use
 ###############################################################################
 
-TESTNAME                        = pe_mem_flush_test
+TESTNAME                        = add_gelu_pass1_mu_input_fp
 USE_COREIR_VALID                = 1
-HL_TARGET                       = host-x86-64
+HL_TARGET                       = host-x86-64-enable_ponds-bfloat_hardware
 RDAI_PLATFORM_RUNTIME           = clockwork_sim
-
-
-
-###############################################################################
-# MODIFICATION : NONE
-#------------------------------------------------------------------------------
-# Include hardwrae build targets
-#
-###############################################################################
+EXT                             = mat
 
 include ../../hw_support/hardware_targets.mk
-
-

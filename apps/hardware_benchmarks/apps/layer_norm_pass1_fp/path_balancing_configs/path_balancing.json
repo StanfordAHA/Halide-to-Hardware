@@ -1,39 +1,43 @@
 {
     "balance_lengths": {
-        "p4": 8,
-        "p5": 8,
-        "p6": 8,
-        "p7": 3,
-        "p8": 4,
-        "p9": 3,
-        "p10": 4,
-        "p11": 6,
-        "p12": 12,
-        "p13": 12,
+        "p0": 8,
+        "p1": 8,
+        "p2": 8,
+        "p3": 3,
+        "p4": 4,
+        "p5": 3,
+        "p6": 4,
+        "p7": 6,
+        "p8": 12,
+        "p9": 12,
+        "p10": 8,
+        "p11": 2,
+        "p12": 2,
+        "p13": 2,
         "p14": 8,
         "p15": 2,
-        "p16": 2,
-        "p17": 2,
-        "p18": 8,
-        "p19": 2,
-        "p20": 4,
-        "p21": 3,
+        "p16": 4,
+        "p17": 3,
+        "p18": 4,
+        "p19": 3,
+        "p20": 2,
+        "p21": 4,
         "p22": 4,
-        "p23": 3,
-        "p24": 2,
-        "p25": 4,
-        "p26": 4,
+        "p23": 4,
+        "p24": 8,
+        "p25": 3,
+        "p26": 6,
         "p27": 4,
-        "p28": 8,
+        "p28": 6,
         "p29": 3,
-        "p30": 6,
-        "p31": 4,
-        "p32": 6,
-        "p33": 3,
-        "p34": 2,
-        "p35": 8
+        "p30": 2,
+        "p31": 8
     },
     "total_stream_lengths": {
+        "p0": 3072,
+        "p1": 3072,
+        "p2": 3072,
+        "p3": 3072,
         "p4": 3072,
         "p5": 3072,
         "p6": 3072,
@@ -61,78 +65,170 @@
         "p28": 3072,
         "p29": 3072,
         "p30": 3072,
-        "p31": 3072,
-        "p32": 3072,
-        "p33": 3072,
-        "p34": 3072,
-        "p35": 3072
+        "p31": 3072
     },
     "name_to_id": {
-        "op_hcompute_output_glb_stencil$inner_compute$float_DW_fp_add_i3205_i792": "p4",
-        "op_hcompute_output_glb_stencil_1$inner_compute$float_DW_fp_add_i3211_i792": "p5",
-        "op_hcompute_output_glb_stencil_10$inner_compute$float_DW_fp_add_i3217_i792": "p6",
-        "op_hcompute_output_glb_stencil_11$inner_compute$float_DW_fp_add_i3223_i792": "p7",
-        "op_hcompute_output_glb_stencil_12$inner_compute$float_DW_fp_add_i3229_i792": "p8",
-        "op_hcompute_output_glb_stencil_13$inner_compute$float_DW_fp_add_i3235_i792": "p9",
-        "op_hcompute_output_glb_stencil_14$inner_compute$float_DW_fp_add_i3241_i792": "p10",
-        "op_hcompute_output_glb_stencil_15$inner_compute$float_DW_fp_add_i3247_i792": "p11",
-        "op_hcompute_output_glb_stencil_16$inner_compute$float_DW_fp_add_i3253_i792": "p12",
-        "op_hcompute_output_glb_stencil_17$inner_compute$float_DW_fp_add_i3259_i792": "p13",
-        "op_hcompute_output_glb_stencil_18$inner_compute$float_DW_fp_add_i3265_i792": "p14",
-        "op_hcompute_output_glb_stencil_19$inner_compute$float_DW_fp_add_i3271_i792": "p15",
-        "op_hcompute_output_glb_stencil_2$inner_compute$float_DW_fp_add_i3277_i792": "p16",
-        "op_hcompute_output_glb_stencil_20$inner_compute$float_DW_fp_add_i3283_i792": "p17",
-        "op_hcompute_output_glb_stencil_21$inner_compute$float_DW_fp_add_i3289_i792": "p18",
-        "op_hcompute_output_glb_stencil_22$inner_compute$float_DW_fp_add_i3295_i792": "p19",
-        "op_hcompute_output_glb_stencil_23$inner_compute$float_DW_fp_add_i3301_i792": "p20",
-        "op_hcompute_output_glb_stencil_24$inner_compute$float_DW_fp_add_i3307_i792": "p21",
-        "op_hcompute_output_glb_stencil_25$inner_compute$float_DW_fp_add_i3313_i792": "p22",
-        "op_hcompute_output_glb_stencil_26$inner_compute$float_DW_fp_add_i3319_i792": "p23",
-        "op_hcompute_output_glb_stencil_27$inner_compute$float_DW_fp_add_i3325_i792": "p24",
-        "op_hcompute_output_glb_stencil_28$inner_compute$float_DW_fp_add_i3331_i792": "p25",
-        "op_hcompute_output_glb_stencil_29$inner_compute$float_DW_fp_add_i3337_i792": "p26",
-        "op_hcompute_output_glb_stencil_3$inner_compute$float_DW_fp_add_i3343_i792": "p27",
-        "op_hcompute_output_glb_stencil_30$inner_compute$float_DW_fp_add_i3349_i792": "p28",
-        "op_hcompute_output_glb_stencil_31$inner_compute$float_DW_fp_add_i3355_i792": "p29",
-        "op_hcompute_output_glb_stencil_4$inner_compute$float_DW_fp_add_i3361_i792": "p30",
-        "op_hcompute_output_glb_stencil_5$inner_compute$float_DW_fp_add_i3367_i792": "p31",
-        "op_hcompute_output_glb_stencil_6$inner_compute$float_DW_fp_add_i3373_i792": "p32",
-        "op_hcompute_output_glb_stencil_7$inner_compute$float_DW_fp_add_i3379_i792": "p33",
-        "op_hcompute_output_glb_stencil_8$inner_compute$float_DW_fp_add_i3385_i792": "p34",
-        "op_hcompute_output_glb_stencil_9$inner_compute$float_DW_fp_add_i3391_i792": "p35"
+        "elementwise_add_pe_0": "p0",
+        "elementwise_add_pe_1": "p1",
+        "elementwise_add_pe_10": "p2",
+        "elementwise_add_pe_11": "p3",
+        "elementwise_add_pe_12": "p4",
+        "elementwise_add_pe_13": "p5",
+        "elementwise_add_pe_14": "p6",
+        "elementwise_add_pe_15": "p7",
+        "elementwise_add_pe_16": "p8",
+        "elementwise_add_pe_17": "p9",
+        "elementwise_add_pe_18": "p10",
+        "elementwise_add_pe_19": "p11",
+        "elementwise_add_pe_2": "p12",
+        "elementwise_add_pe_20": "p13",
+        "elementwise_add_pe_21": "p14",
+        "elementwise_add_pe_22": "p15",
+        "elementwise_add_pe_23": "p16",
+        "elementwise_add_pe_24": "p17",
+        "elementwise_add_pe_25": "p18",
+        "elementwise_add_pe_26": "p19",
+        "elementwise_add_pe_27": "p20",
+        "elementwise_add_pe_28": "p21",
+        "elementwise_add_pe_29": "p22",
+        "elementwise_add_pe_3": "p23",
+        "elementwise_add_pe_30": "p24",
+        "elementwise_add_pe_31": "p25",
+        "elementwise_add_pe_4": "p26",
+        "elementwise_add_pe_5": "p27",
+        "elementwise_add_pe_6": "p28",
+        "elementwise_add_pe_7": "p29",
+        "elementwise_add_pe_8": "p30",
+        "elementwise_add_pe_9": "p31"
     },
-   "pe_to_pond": {
-        "p4": [true, ""],
-        "p5": [true, ""],
-        "p6": [true, ""],
-        "p7": [true, ""],
-        "p8": [true, ""],
-        "p9": [true, ""],
-        "p10": [true, ""],
-        "p11": [true, ""],
-        "p12": [true, ""],
-        "p13": [true, ""],
-        "p14": [true, ""],
-        "p15": [true, ""],
-        "p16": [true, ""],
-        "p17": [true, ""],
-        "p18": [true, ""],
-        "p19": [true, ""],
-        "p20": [true, ""],
-        "p21": [true, ""],
-        "p22": [true, ""],
-        "p23": [true, ""],
-        "p24": [true, ""],
-        "p25": [true, ""],
-        "p26": [true, ""],
-        "p27": [true, ""],
-        "p28": [true, ""],
-        "p29": [true, ""],
-        "p30": [true, ""],
-        "p31": [true, ""],
-        "p32": [true, ""],
-        "p33": [true, ""],
-        "p34": [true, ""],
-        "p35": [true, ""]
+    "pe_to_pond": {
+        "p0": [
+            true,
+            ""
+        ],
+        "p1": [
+            true,
+            ""
+        ],
+        "p2": [
+            true,
+            ""
+        ],
+        "p3": [
+            true,
+            ""
+        ],
+        "p4": [
+            true,
+            ""
+        ],
+        "p5": [
+            true,
+            ""
+        ],
+        "p6": [
+            true,
+            ""
+        ],
+        "p7": [
+            true,
+            ""
+        ],
+        "p8": [
+            true,
+            ""
+        ],
+        "p9": [
+            true,
+            ""
+        ],
+        "p10": [
+            true,
+            ""
+        ],
+        "p11": [
+            true,
+            ""
+        ],
+        "p12": [
+            true,
+            ""
+        ],
+        "p13": [
+            true,
+            ""
+        ],
+        "p14": [
+            true,
+            ""
+        ],
+        "p15": [
+            true,
+            ""
+        ],
+        "p16": [
+            true,
+            ""
+        ],
+        "p17": [
+            true,
+            ""
+        ],
+        "p18": [
+            true,
+            ""
+        ],
+        "p19": [
+            true,
+            ""
+        ],
+        "p20": [
+            true,
+            ""
+        ],
+        "p21": [
+            true,
+            ""
+        ],
+        "p22": [
+            true,
+            ""
+        ],
+        "p23": [
+            true,
+            ""
+        ],
+        "p24": [
+            true,
+            ""
+        ],
+        "p25": [
+            true,
+            ""
+        ],
+        "p26": [
+            true,
+            ""
+        ],
+        "p27": [
+            true,
+            ""
+        ],
+        "p28": [
+            true,
+            ""
+        ],
+        "p29": [
+            true,
+            ""
+        ],
+        "p30": [
+            true,
+            ""
+        ],
+        "p31": [
+            true,
+            ""
+        ]
     }
 }

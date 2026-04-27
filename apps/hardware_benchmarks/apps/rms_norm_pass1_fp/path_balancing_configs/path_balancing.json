@@ -1,82 +1,136 @@
 {
     "balance_lengths": {
-        "p43": 2,
-        "p19": 2,
-        "p17": 2,
-        "p20": 2,
-        "p25": 2,
-        "p39": 2,
-        "p36": 2,
-        "p34": 8,
-        "p32": 8,
-        "p35": 4,
-        "p38": 4,
+        "p9": 2,
+        "p15": 2,
         "p13": 2,
-        "p28": 2,
         "p16": 2,
-        "p31": 2,
-        "p9": 8,
-        "p11": 2,
-        "p6": 8
+        "p4": 2,
+        "p6": 2,
+        "p5": 2,
+        "p28": 8,
+        "p26": 8,
+        "p29": 4,
+        "p31": 4,
+        "p2": 2,
+        "p12": 2,
+        "p1": 2,
+        "p23": 2,
+        "p71": 8,
+        "p72": 2,
+        "p68": 8
     },
     "total_stream_lengths": {
-        "p43": 8192,
-        "p19": 8192,
-        "p17": 8192,
-        "p20": 8192,
-        "p25": 8192,
-        "p39": 8192,
-        "p36": 8192,
-        "p34": 8192,
-        "p32": 8192,
-        "p35": 8192,
-        "p38": 8192,
+        "p9": 8192,
+        "p15": 8192,
         "p13": 8192,
-        "p28": 8192,
         "p16": 8192,
+        "p4": 8192,
+        "p6": 8192,
+        "p5": 8192,
+        "p28": 8192,
+        "p26": 8192,
+        "p29": 8192,
         "p31": 8192,
-        "p9": 128,
-        "p11": 128,
-        "p6": 128
+        "p2": 8192,
+        "p12": 8192,
+        "p1": 8192,
+        "p23": 8192,
+        "p71": 128,
+        "p72": 128,
+        "p68": 128
     },
     "name_to_id": {
-        "op_hcompute_output_glb_stencil$inner_compute$float_DW_fp_mul_i3231_i1325": "p13",
-        "op_hcompute_output_glb_stencil_11$inner_compute$float_DW_fp_mul_i3249_i1325": "p16",
-        "op_hcompute_output_glb_stencil_12$inner_compute$float_DW_fp_mul_i3255_i1325": "p17",
-        "op_hcompute_output_glb_stencil_14$inner_compute$float_DW_fp_mul_i3267_i1325": "p19",
-        "op_hcompute_output_glb_stencil_15$inner_compute$float_DW_fp_mul_i3273_i1325": "p20",
-        "op_hcompute_output_glb_stencil_2$inner_compute$float_DW_fp_mul_i3303_i1325": "p25",
-        "op_hcompute_output_glb_stencil_22$inner_compute$float_DW_fp_mul_i3321_i1325": "p28",
-        "op_hcompute_output_glb_stencil_25$inner_compute$float_DW_fp_mul_i3339_i1325": "p31",
-        "op_hcompute_output_glb_stencil_26$inner_compute$float_DW_fp_mul_i3345_i1325": "p32",
-        "op_hcompute_output_glb_stencil_28$inner_compute$float_DW_fp_mul_i3357_i1325": "p34",
-        "op_hcompute_output_glb_stencil_29$inner_compute$float_DW_fp_mul_i3363_i1325": "p35",
-        "op_hcompute_output_glb_stencil_3$inner_compute$float_DW_fp_mul_i3369_i1325": "p36",
-        "op_hcompute_output_glb_stencil_31$inner_compute$float_DW_fp_mul_i3381_i1325": "p38",
-        "op_hcompute_output_glb_stencil_4$inner_compute$float_DW_fp_mul_i3387_i1325": "p39",
-        "op_hcompute_output_glb_stencil_8$inner_compute$float_DW_fp_mul_i3411_i1325": "p43",
-        "op_hcompute_output_cgra_stencil$inner_compute$fp_getfint_i3199i27_i1079": "p9",
-        "op_hcompute_output_cgra_stencil$inner_compute$fp_getmant_i3200i6_i1120": "p11",
-        "op_hcompute_output_cgra_stencil$inner_compute$fp_addiexp_i3199i29_i833_dummy_max_nop_pe0": "p6"
+        "elementwise_mul_pe_1": "p1",
+        "elementwise_mul_pe_10": "p2",
+        "elementwise_mul_pe_12": "p4",
+        "elementwise_mul_pe_13": "p5",
+        "elementwise_mul_pe_14": "p6",
+        "elementwise_mul_pe_17": "p9",
+        "elementwise_mul_pe_2": "p12",
+        "elementwise_mul_pe_20": "p13",
+        "elementwise_mul_pe_22": "p15",
+        "elementwise_mul_pe_23": "p16",
+        "elementwise_mul_pe_3": "p23",
+        "elementwise_mul_pe_4": "p26",
+        "elementwise_mul_pe_6": "p28",
+        "elementwise_mul_pe_7": "p29",
+        "elementwise_mul_pe_9": "p31",
+        "rms_norm_pass1_fp_dummy_max_nop_pe": "p68",
+        "rms_norm_pass1_fp_getfint_pe": "p71",
+        "rms_norm_pass1_fp_getmant_div_pe": "p72"
     },
     "pe_to_pond": {
-        "p43": [true, ""],
-        "p19": [true, ""],
-        "p17": [true, ""],
-        "p20": [true, ""],
-        "p25": [true, ""],
-        "p39": [true, ""],
-        "p36": [true, ""],
-        "p34": [true, ""],
-        "p32": [true, ""],
-        "p35": [true, ""],
-        "p38": [true, ""],
-        "p13": [true, ""],
-        "p28": [true, ""],
-        "p16": [true, ""],
-        "p31": [true, ""],
-        "p9": [true, ""],
-        "p11": [true, ""],
-        "p6": [true, ""]
+        "p9": [
+            true,
+            ""
+        ],
+        "p15": [
+            true,
+            ""
+        ],
+        "p13": [
+            true,
+            ""
+        ],
+        "p16": [
+            true,
+            ""
+        ],
+        "p4": [
+            true,
+            ""
+        ],
+        "p6": [
+            true,
+            ""
+        ],
+        "p5": [
+            true,
+            ""
+        ],
+        "p28": [
+            true,
+            ""
+        ],
+        "p26": [
+            true,
+            ""
+        ],
+        "p29": [
+            true,
+            ""
+        ],
+        "p31": [
+            true,
+            ""
+        ],
+        "p2": [
+            true,
+            ""
+        ],
+        "p12": [
+            true,
+            ""
+        ],
+        "p1": [
+            true,
+            ""
+        ],
+        "p23": [
+            true,
+            ""
+        ],
+        "p71": [
+            true,
+            ""
+        ],
+        "p72": [
+            true,
+            ""
+        ],
+        "p68": [
+            true,
+            ""
+        ]
     }
 }

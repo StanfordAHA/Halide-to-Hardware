@@ -382,7 +382,8 @@ def E64_packing(json_data):
                     unique_positions.add(position)
 
                     # Apply extent scaling only for packed x-positions
-                    if tile["x_pos"] in pack_x_set:
+                    # Skip extent scaling if E64_packed was explicitly set to 0
+                    if tile["x_pos"] in pack_x_set and tile.get("E64_packed", 1) != 0:
                         if "extent_multiplier" in tile:
                             tile["extent_multiplier"] *= 4
                         else:
@@ -785,6 +786,127 @@ def hack_config_for_bank_toggle_mode(meta):
     return meta
 
 
+def addFakeIOsFromScheduledOps(meta, bin_directory):
+    """
+    For tensor-decomposed kernels, glb_bank_idx_for_data may span more banks
+    than glb_bank_idx_for_graph. Add fake IO tiles for banks that appear in
+    glb_bank_idx_for_data but not in glb_bank_idx_for_graph so the host
+    has entries for every bank it writes to or reads from.
+    The addr config is replicated from the first real tile of the same IO.
+    """
+    scheduled_ops_path = os.path.join(bin_directory, "scheduled_ops.json")
+    if not os.path.isfile(scheduled_ops_path):
+        return meta
+
+    with open(scheduled_ops_path, "r") as f:
+        scheduled_ops = json.load(f)
+
+    if not scheduled_ops:
+        return meta
+
+    kernel = scheduled_ops[0]
+    kernel_inputs_dict = kernel.get("inputs", {})
+    kernel_inputs = list(kernel_inputs_dict.values())
+    kernel_outputs = list(kernel.get("outputs", {}).values())
+
+    # Propagate is_first_pass and is_last_pass into meta for downstream tools (e.g. test.py)
+    first_output = next(iter(kernel.get("outputs", {}).values()), {})
+    is_first_pass = first_output.get("is_first_pass", 1)
+    is_last_pass = first_output.get("is_last_pass", 1)
+    meta["is_first_pass"] = is_first_pass
+    meta["is_last_pass"] = is_last_pass
+
+    # When not the first pass, the "input" tensor is read from GLB (written by previous pass)
+    if is_first_pass == 0:
+        input_keys = list(kernel_inputs_dict.keys())
+        if "input" in input_keys:
+            input_idx = input_keys.index("input")
+            if input_idx < len(meta["IOs"]["inputs"]):
+                io_entry = meta["IOs"]["inputs"][input_idx]
+                for tile in io_entry.get("io_tiles", []):
+                    tile["is_glb_input"] = 1
+
+    def get_fake_x_positions(kernel_io):
+        data_banks = kernel_io.get("glb_bank_idx_for_data", [])
+        graph_banks = kernel_io.get("glb_bank_idx_for_graph", [])
+        if not data_banks or not graph_banks:
+            return []
+        graph_unique = set(graph_banks)
+        # Return the full list with repeats so fake tile count matches E64 packing.
+        return sorted(x for x in data_banks if x not in graph_unique)
+
+    for i, io_entry in enumerate(meta["IOs"]["inputs"]):
+        if "io_tiles" not in io_entry or i >= len(kernel_inputs):
+            continue
+        kernel_io = kernel_inputs[i]
+        fake_x_positions = get_fake_x_positions(kernel_io)
+        if not fake_x_positions:
+            continue
+        for tile in io_entry["io_tiles"]:
+            tile.setdefault("is_fake_io", 0)
+        node_name = kernel_io.get("node", f"input_{i}")
+        template_tile = io_entry["io_tiles"][0]
+        for idx, x_pos in enumerate(fake_x_positions):
+            fake_tile = copy.deepcopy(template_tile)
+            fake_tile["name"] = f"fake_io_input_{node_name}_x{x_pos}_{idx}"
+            fake_tile["x_pos"] = x_pos
+            fake_tile["y_pos"] = 0
+            fake_tile["is_fake_io"] = 1
+            io_entry["io_tiles"].append(fake_tile)
+        io_entry["io_tiles"].sort(key=lambda t: t["x_pos"])
+
+    for i, io_entry in enumerate(meta["IOs"]["outputs"]):
+        if "io_tiles" not in io_entry or i >= len(kernel_outputs):
+            continue
+        kernel_io = kernel_outputs[i]
+        fake_x_positions = get_fake_x_positions(kernel_io)
+        if not fake_x_positions:
+            continue
+        for tile in io_entry["io_tiles"]:
+            tile.setdefault("is_fake_io", 0)
+        node_name = kernel_io.get("node", f"output_{i}")
+        template_tile = io_entry["io_tiles"][0]
+        for idx, x_pos in enumerate(fake_x_positions):
+            fake_tile = copy.deepcopy(template_tile)
+            fake_tile["name"] = f"fake_io_output_{node_name}_x{x_pos}_{idx}"
+            fake_tile["x_pos"] = x_pos
+            fake_tile["y_pos"] = 0
+            fake_tile["is_fake_io"] = 1
+            io_entry["io_tiles"].append(fake_tile)
+        io_entry["io_tiles"].sort(key=lambda t: t["x_pos"])
+
+    def get_e64_packing_map(kernel_io):
+        graph_banks = kernel_io.get("glb_bank_idx_for_graph", [])
+        e64_values = kernel_io.get("e64_packing_for_graph", [])
+        mapping = {}
+        for bank, flag in zip(graph_banks, e64_values):
+            if bank not in mapping:
+                mapping[bank] = flag
+        return mapping
+
+    for i, io_entry in enumerate(meta["IOs"]["inputs"]):
+        if "io_tiles" not in io_entry or i >= len(kernel_inputs):
+            continue
+        e64_map = get_e64_packing_map(kernel_inputs[i])
+        if not e64_map:
+            continue
+        for tile in io_entry["io_tiles"]:
+            if e64_map.get(tile["x_pos"], 1) == 0:
+                tile["E64_packed"] = 0
+
+    for i, io_entry in enumerate(meta["IOs"]["outputs"]):
+        if "io_tiles" not in io_entry or i >= len(kernel_outputs):
+            continue
+        e64_map = get_e64_packing_map(kernel_outputs[i])
+        if not e64_map:
+            continue
+        for tile in io_entry["io_tiles"]:
+            if e64_map.get(tile["x_pos"], 1) == 0:
+                tile["E64_packed"] = 0
+
+    return meta
+
+
 def main():
     args = parseArguments()
 
@@ -805,6 +927,8 @@ def main():
 
         if args.place != None:
             parseDesignPlace(meta, args.place)
+
+    meta = addFakeIOsFromScheduledOps(meta, bin_directory)
 
     if args.shuffle:
         inputs = meta['IOs']['inputs']

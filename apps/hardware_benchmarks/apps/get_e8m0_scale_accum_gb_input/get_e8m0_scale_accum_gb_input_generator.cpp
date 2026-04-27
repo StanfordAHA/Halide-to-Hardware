@@ -81,19 +81,19 @@ public:
                 .reorder(d_cgra, d_glb);
 
             // Unroll output over glb
-            hw_output.unroll(d_glb, glb_o);
-            output_glb.unroll(d_cgra, glb_o);
+            hw_output.unroll(d_glb, 1);
+            output_glb.unroll(d_cgra, 1);
 
             // CGRA-level compute & reduction scheduling
             abs_max.compute_at(output_glb, d_glb);
-            abs_max.update().reorder(d, r.x, s).unroll(d, glb_i);
+            abs_max.update().reorder(d, r.x, s).unroll(d, 1);
             // output_cgra.compute_at(output_glb, s_glb).unroll(d, glb_o);
             output_cgra.compute_at(output_glb, d_glb);
-            output_cgra.unroll(d, glb_o);
+            output_cgra.unroll(d, 1);
 
             // Buffering and unrolling inputs
             input_host.compute_root().accelerator_input();
-            input_glb.compute_at(hw_output, d_host).unroll(d, glb_i);
+            input_glb.compute_at(hw_output, d_host).unroll(d, 1);
 
         } else {  // schedule to CPU
             output_cgra.compute_root();

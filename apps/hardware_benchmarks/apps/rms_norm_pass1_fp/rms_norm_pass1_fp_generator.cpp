@@ -94,7 +94,7 @@ public:
                 .split(y, y_host, y_glb, vec_height_fake)
                 .reorder(x_glb, y_glb, x_host, y_host)
                 .hw_accelerate(y_glb, y_host)
-                .unroll(x_glb, glb_i);
+                .unroll(x_glb, 1);
 
             // L2 loop level
             output_glb.compute_at(hw_output, y_host);
@@ -102,7 +102,7 @@ public:
                 .split(x, x_glb, x_cgra, vec_width_fake)
                 .split(y, y_glb, y_cgra, vec_height_fake)
                 .reorder(x_cgra, y_cgra, x_glb, y_glb)
-                .unroll(x_cgra, glb_i);
+                .unroll(x_cgra, 1);
 
             // L1 loop level
             // Element-wise division
@@ -120,15 +120,15 @@ public:
 
             // Reduction tree
             for (int s = 1; s <= total_stages; s++) {
-                tree[s].compute_at(output_glb, y_glb).unroll(xi);
+                tree[s].compute_at(output_glb, y_glb).unroll(xi, 1);
             }
 
             // Input streaming
             input_host.compute_root().accelerator_input();
-            input_glb.compute_at(hw_output, y_host).unroll(x, glb_i);
+            input_glb.compute_at(hw_output, y_host).unroll(x, 1);
 
             tile_input.compute_at(output_glb, y_glb)
-                .unroll(xi, glb_i)
+                .unroll(xi, 1)
                 .reorder(xi, tile, y);
 
         } else {  // schedule to CPU

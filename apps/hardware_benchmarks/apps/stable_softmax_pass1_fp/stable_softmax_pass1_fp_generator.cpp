@@ -136,7 +136,7 @@ public:
 
             // Compute each stage of the reduction tree inside tile_sum.
             for (int s = 1; s <= total_stages; s++) {
-                tree[s].compute_at(output_glb, y_glb).unroll(xi);
+                tree[s].compute_at(output_glb, y_glb).unroll(xi, 1);
             }
 
             // Input buffers
@@ -150,10 +150,10 @@ public:
             //     .reorder(x_cgra, y, x_glb);
             tile_input.reorder(xi, tile, y);
 
-            // Unroll input and kernel over glb (default 1)
-            input_glb.unroll(x, glb_i);  // unroll glb input for small images
-            // input_cgra.unroll(x_cgra, glb_i); // unroll glb input for small images
-            tile_input.unroll(xi, glb_i);  // unroll glb input for small images
+            // Unroll input and kernel over glb (default 1).
+            // Strait re-emits the design, so Halide's schedule here is a fast placeholder.
+            input_glb.unroll(x, 1);
+            tile_input.unroll(xi, 1);
 
         } else {  // schedule to CPU
             output_cgra.compute_root();
