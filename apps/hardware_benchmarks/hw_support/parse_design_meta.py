@@ -484,6 +484,17 @@ def hack_config_for_mha_concat(meta):
     assert "NUM_ATTENTION_HEADS" in os.environ, "NUM_ATTENTION_HEADS environment variable must be set for MHA_CONCAT"
     num_attn_heads = int(os.environ["NUM_ATTENTION_HEADS"])
 
+    io_innermost_dim_tiling = "IO_INNERMOST_DIM_TILING" in os.environ and os.environ["IO_INNERMOST_DIM_TILING"] == "1"
+    if io_innermost_dim_tiling:
+        assert "NUM_IO_INNERMOST_DIM_TILING_KERNELS" in os.environ, "NUM_IO_INNERMOST_DIM_TILING_KERNELS environment variable must be set for IO_INNERMOST_DIM_TILING"
+        num_io_innermost_dim_tiling_kernels = int(os.environ.get("NUM_IO_INNERMOST_DIM_TILING_KERNELS"))
+        output_tensor_io_innermost_dim_tiling = "OUTPUT_TENSOR_IO_INNERMOST_DIM_TILING" in os.environ and os.environ["OUTPUT_TENSOR_IO_INNERMOST_DIM_TILING"] == "1"
+
+        # IO dim0 tioling means tiling attention heads for MHA permute or concat
+        if output_tensor_io_innermost_dim_tiling:
+            num_attn_heads //= num_io_innermost_dim_tiling_kernels
+
+
     head_dim = hidden_dim // num_attn_heads
 
     loop_bounds = [head_dim // MU_WORD_NUM_BYTES, seq_len, num_attn_heads]  # D, N, H
@@ -530,6 +541,27 @@ def hack_addr_gen_for_mu_tiling(meta, mu_tiling_file):
 
     mha_permute = "MHA_PERMUTE" in os.environ and os.environ["MHA_PERMUTE"] == "1"
     num_attn_heads = int(os.environ.get("NUM_ATTENTION_HEADS", 12))
+
+    k_dim_host_tiling = "K_DIM_HOST_TILING" in os.environ and os.environ["K_DIM_HOST_TILING"] == "1"
+    if k_dim_host_tiling:
+        assert "NUM_K_HOST_TILING_KERNELS" in os.environ, "NUM_K_HOST_TILING_KERNELS environment variable must be set for K_DIM_HOST_TILING"
+        num_k_host_tiling_kernels = int(os.environ.get("NUM_K_HOST_TILING_KERNELS"))
+        output_tensor_k_dim_tiling = "OUTPUT_TENSOR_K_DIM_TILING" in os.environ and os.environ["OUTPUT_TENSOR_K_DIM_TILING"] == "1"
+
+        # K-dim tiling means tiling attention heads for MHA permute or concat
+        if output_tensor_k_dim_tiling:
+            num_attn_heads //= num_k_host_tiling_kernels
+
+    io_innermost_dim_tiling = "IO_INNERMOST_DIM_TILING" in os.environ and os.environ["IO_INNERMOST_DIM_TILING"] == "1"
+    if io_innermost_dim_tiling:
+        assert "NUM_IO_INNERMOST_DIM_TILING_KERNELS" in os.environ, "NUM_IO_INNERMOST_DIM_TILING_KERNELS environment variable must be set for IO_INNERMOST_DIM_TILING"
+        num_io_innermost_dim_tiling_kernels = int(os.environ.get("NUM_IO_INNERMOST_DIM_TILING_KERNELS"))
+        output_tensor_io_innermost_dim_tiling = "OUTPUT_TENSOR_IO_INNERMOST_DIM_TILING" in os.environ and os.environ["OUTPUT_TENSOR_IO_INNERMOST_DIM_TILING"] == "1"
+
+        # IO dim0 tioling means tiling attention heads for MHA permute or concat
+        if output_tensor_io_innermost_dim_tiling:
+            num_attn_heads //= num_io_innermost_dim_tiling_kernels
+
     # K dimension host tiling: used in resnet18 conv5 in Zircon
     # k_dim_host_tiling = "K_DIM_HOST_TILING" in os.environ and os.environ["K_DIM_HOST_TILING"] == "1"
     # if k_dim_host_tiling:
