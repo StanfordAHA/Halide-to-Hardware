@@ -30,15 +30,23 @@ struct SimpleHWXcel {
 
 class InsertHWXcel : public IRMutator {
   const SimpleHWXcel &xcel;
+  // H2H Path B fix (2026-07-14): guard against wrapping the same xcel's
+  // store_level For twice. Some upstream passes (sliding_window prologue+
+  // steady-state, or split-loop duplication) can leave two sibling For nodes
+  // whose name matches xcel.store_level; without this guard both get wrapped
+  // in _hls_target.<xcel> PC nodes, and CodeGen_RDAI pushes the same string
+  // into xcel_names twice, tripping the xcels.size()==1 assertion at
+  // CodeGen_Clockwork_Target.cpp:1027. See /aha/clockwork/CLAUDE.md Phase 1.
+  bool matched = false;
 
   using IRMutator::visit;
 
   Stmt create_xcel_call(Stmt stmt) {
     Stmt body = stmt;
-    
+
     bool create_call = (xcel.type == AccelerateType::SingleCall) || (xcel.type == AccelerateType::CombinedCallFunc);
     bool create_xcel = (xcel.type == AccelerateType::EnclosingFunc) || (xcel.type == AccelerateType::CombinedCallFunc);
-      
+
     if (create_call) {
       string name = "_hls_target." + xcel.name;
       Stmt new_body_produce = ProducerConsumer::make_produce(name, body);
@@ -61,19 +69,23 @@ class InsertHWXcel : public IRMutator {
   // look for compute and store loops for generating hardware buffers
   Stmt visit(const For *op) {
     if (xcel.store_level.match(op->name)) {
-      //std::cout << "loop check: create xcel\n";
-      // should be left with store level match; we should produce hls_target
+      if (matched) {
+        // Duplicate match for the same xcel — skip wrapping, recurse into
+        // body so nested passes still see the loop. See Path B note above.
+        std::cout << "InsertHWXcel: SKIPPING duplicate For match "
+                  << op->name << " for xcel " << xcel.name << std::endl;
+        return IRMutator::visit(op);
+      }
+      matched = true;
+      std::cout << "InsertHWXcel: wrapping For " << op->name
+                << " for xcel " << xcel.name << " (first match)" << std::endl;
       debug(3) << "find the pipeline producing " << xcel.name << "\n";
 
-      //Stmt body = Stmt(op);
-      //stmt = For::make(xcel.name + ".accelerator", 0, 1, ForType::Serial, DeviceAPI::Host, body);
-      
       Stmt body = op->body;
-      
+
       body = create_xcel_call(body);
 
       Stmt stmt = body;
-      //std::cout << "body is:\n" << new_body_produce;
 
       return For::make(op->name, op->min, op->extent, op->for_type, op->device_api, stmt);
 
@@ -83,22 +95,23 @@ class InsertHWXcel : public IRMutator {
   }
 
   Stmt visit(const ProducerConsumer *op) {
-    //if (xcel.store_level.match(op->name)) {
     if (xcel.store_level.var().name() == Var::outermost().name() &&
         op->name == xcel.name && op->is_producer) {
-      //std::cout << "loop check: create xcel\n";
-      // should be left with store level match; we should produce hls_target
+      if (matched) {
+        std::cout << "InsertHWXcel: SKIPPING duplicate PC match "
+                  << op->name << " for xcel " << xcel.name << std::endl;
+        return IRMutator::visit(op);
+      }
+      matched = true;
+      std::cout << "InsertHWXcel: wrapping PC " << op->name
+                << " for xcel " << xcel.name << " (first match)" << std::endl;
       debug(3) << "find the pipeline producing " << xcel.name << "\n";
 
-      //Stmt body = Stmt(op);
-      //stmt = For::make(xcel.name + ".accelerator", 0, 1, ForType::Serial, DeviceAPI::Host, body);
-      
       Stmt body = op->body;
-      
+
       body = create_xcel_call(body);
 
       Stmt stmt = body;
-      //std::cout << "body is:\n" << new_body_produce;
 
       return ProducerConsumer::make(op->name, op->is_producer, stmt);
 

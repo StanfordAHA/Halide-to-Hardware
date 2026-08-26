@@ -2083,7 +2083,7 @@ Stmt schedule_functions(const vector<Function> &outputs,
             if (f.is_wrapper() && env.count(f.is_wrapper()->name)) {
               //std::cout << f.name() << " is a wrapper for " << f.is_wrapper()->name << std::endl;
               Function orig_func = env.find(f.is_wrapper()->name)->second;
-              
+
               if (orig_func.schedule().is_hw_kernel() && orig_func.schedule().is_accelerator_input() &&
                   f.schedule().store_level().is_inlined()) {
                   //ends_with(f.name(), "global_wrapper")) {
@@ -2092,6 +2092,37 @@ Stmt schedule_functions(const vector<Function> &outputs,
                 Function func_exit = env.find(f.schedule().accelerate_exit())->second;
                 f.schedule().compute_level() = func_exit.schedule().accelerate_store_level();
                 f.schedule().store_level() = func_exit.schedule().accelerate_store_level();
+              }
+
+              // H2H extension (2026-07-13): if the wrapper has a default (flat) stage
+              // schedule but the source Func has been tile()/split(), inherit the
+              // source's splits+dims so the wrapper's iteration domain acquires the
+              // same outer indices. This lets downstream lowering passes (H2H's
+              // CodeGen_Clockwork_Target, then clockwork's delay-adjustment/banking)
+              // see a sub-tile-aware wrapper op instead of a flat one. Only fires
+              // when the wrapper's schedule is untouched — user-applied tile/split
+              // on the wrapper takes precedence.
+              //
+              // 2026-07-15 guard: skip inheritance when the wrapper is inlined.
+              // Halide rejects vectorize/unroll/split on inlined funcs; inheriting
+              // a source's vectorize (as in gaussian's blur→hw_output wrapper)
+              // trips "Cannot vectorize dimension x.v32 because the function is
+              // scheduled inline" at generator-time. Only materialized wrappers
+              // benefit from the inherited schedule anyway.
+              if (!f.schedule().store_level().is_inlined()) {
+                auto& w_stage = f.definition().schedule();
+                const auto& src_stage = orig_func.definition().schedule();
+                size_t n_args = f.args().size();
+                bool wrapper_is_default =
+                    w_stage.splits().empty() &&
+                    w_stage.dims().size() == n_args + 1;  // args + __outermost
+                if (wrapper_is_default && !src_stage.splits().empty()) {
+                    w_stage.splits() = src_stage.splits();
+                    w_stage.dims() = src_stage.dims();
+                    std::cout << f.name() << " inherited " << src_stage.splits().size()
+                              << " splits and " << src_stage.dims().size()
+                              << " dims from source " << orig_func.name() << std::endl;
+                }
               }
             }
 

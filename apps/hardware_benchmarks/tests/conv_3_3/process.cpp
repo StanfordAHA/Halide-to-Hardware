@@ -70,8 +70,14 @@ int main( int argc, char **argv ) {
 //  
 //  convert_and_save_image(output, image_name);
 
-  processor.input   = Buffer<uint8_t>(64, 64);
-  processor.output  = Buffer<uint8_t>(62, 62);
+#ifndef CONV_IN_IMG
+#define CONV_IN_IMG 64
+#endif
+#ifndef CONV_KSIZE
+#define CONV_KSIZE 3
+#endif
+  processor.input   = Buffer<uint8_t>(CONV_IN_IMG, CONV_IN_IMG);
+  processor.output  = Buffer<uint8_t>(CONV_IN_IMG - CONV_KSIZE + 1, CONV_IN_IMG - CONV_KSIZE + 1);
   
   return processor.process_command(argc, argv);
   

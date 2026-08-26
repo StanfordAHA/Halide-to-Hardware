@@ -469,13 +469,28 @@ void CodeGen_Clockwork_Target::add_kernel(Stmt s,
                                           const string &xcel_name,
                                           const vector<HW_Arg> &args) {
     debug(1) << "CodeGen_Clockwork_Target::add_kernel " << xcel_name << "\n";
-    xcel_names.emplace_back(printname(xcel_name));
 
-    closure_args[printname(xcel_name)] = args;
+    // 2026-07-15: dedupe when the same xcel is presented multiple times.
+    // This happens when Halide's TailStrategy specializes a non-divisor tile
+    // into prologue+steady+epilogue code paths (e.g. Path B schedule=3 with
+    // mem_x=20 on tilesize=62): the single _hls_target PC node from
+    // InsertHWXcel gets textually duplicated into each specialization, and
+    // CodeGen_RDAI visits each duplicate, calling add_kernel repeatedly for
+    // the same xcel. First call emits the prog; later calls with the same
+    // name are no-ops. See /aha/clockwork/CLAUDE.md Phase 6.
+    string pn = printname(xcel_name);
+    for (const auto& existing : xcel_names) {
+      if (existing == pn) {
+        std::cout << "CodeGen_Clockwork_Target::add_kernel: SKIPPING duplicate xcel "
+                  << pn << std::endl;
+        return;
+      }
+    }
+    xcel_names.emplace_back(pn);
+
+    closure_args[pn] = args;
     clkc.buffers.clear(); // reset the buffers that have been declared between xcels
-    //hdrc.add_kernel(s, name, args);
-    //srcc.add_kernel(s, name, args);
-    clkc.add_kernel(s, target_name, printname(xcel_name), args);
+    clkc.add_kernel(s, target_name, pn, args);
 
     clkc.memory_stream << endl
                        << "  return prg;" << endl
@@ -2320,13 +2335,25 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Realize *op) {
       has_variable_min = true;
     }
   }
-  //auto new_body = op->body;
-  auto new_body = shift_realize_bounds(op->body, op->name, realize_mins, scope);
-  std::cout << "shifting " << op->name << " by " << realize_mins << std::endl;
 
-  if (has_variable_min) {
-    internal_assert(realize_glb_indices.count(op->name) == 0);
-    realize_glb_indices[op->name] = realize_mins;
+  // Small-surface fix (2026-07-13): If we've already shifted this op's realize once
+  // (outer Realize with variable min already processed), don't shift again — that
+  // would double-subtract the mins from the body's Provide/Call args and produce
+  // wrong output. The realize_glb_indices consumers at :2041-2049 and :2080-2088
+  // are commented out, so overwriting has no other downstream effect; skipping the
+  // shift is the correct behavior. This allows output-side sliding-window schedules
+  // (`hw_output.store_at(x,outer).compute_at(x,inner)`) to pass this pass.
+  bool already_shifted = has_variable_min && realize_glb_indices.count(op->name) > 0;
+  Stmt new_body;
+  if (already_shifted) {
+    std::cout << "skipping re-shift of " << op->name << " (already shifted by outer Realize)" << std::endl;
+    new_body = op->body;
+  } else {
+    new_body = shift_realize_bounds(op->body, op->name, realize_mins, scope);
+    std::cout << "shifting " << op->name << " by " << realize_mins << std::endl;
+    if (has_variable_min) {
+      realize_glb_indices[op->name] = realize_mins;
+    }
   }
 
   for (size_t i = 0; i < op->bounds.size(); i++) {

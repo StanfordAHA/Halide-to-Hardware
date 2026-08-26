@@ -38,6 +38,15 @@ USE_COREIR_VALID                = 1
 HL_TARGET                       = host-x86-64
 RDAI_PLATFORM_RUNTIME           = clockwork_sim
 
+# Forward optional sweep macros into process.cpp so host buffer sizes track
+# the Halide GeneratorParam in_img / ksize. See sweep_conv_block_sizes.py.
+ifdef CONV_IN_IMG
+CXXFLAGS += -DCONV_IN_IMG=$(CONV_IN_IMG)
+endif
+ifdef CONV_KSIZE
+CXXFLAGS += -DCONV_KSIZE=$(CONV_KSIZE)
+endif
+
 
 
 ###############################################################################
