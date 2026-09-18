@@ -20,9 +20,7 @@ public:
     void generate() {
         /* THE ALGORITHM */
         // Input: BF16 x - E(x) stored in 4 GLB Tiles
-        // Output: BF16 out/(sqrt(sum(out^2)))*Nγ+β stored in 4 GLB Tiles
-        const float gamma = 1.2f;
-        const float beta = -0.35f;
+        // Output: normalized BF16 input; learned gamma/beta are applied in pass 3.
         Var x("x"), y("y");
         Func hw_input("hw_input"), input_host("input_host"), input_glb("input_glb"), input_cgra("input_cgra");
         Func hw_output("hw_output"), output_glb("output_glb"), output_cgra("output_cgra"), sum_cgra("sum_cgra");
@@ -66,10 +64,9 @@ public:
         sum_cgra(y) = bf16(0);
         sum_cgra(y) += tile_sum(r.x, y);
 
-        // output_cgra(x, y) = input_cgra(x, y) / exp(bf16(0.5f) * log(sum_cgra(y))) * bf16(float(vec_width) * gamma) + bf16(beta);
-        output_cgra(x, y) = bf16(sqrtf(float(vec_width)) * gamma) / exp(bf16(0.5f) * log(sum_cgra(y)));
+        output_cgra(x, y) = bf16(sqrtf(float(vec_width))) / exp(bf16(0.5f) * log(sum_cgra(y)));
 
-        output_glb(x, y) = input_cgra(x, y) * output_cgra(x, y) + bf16(beta);
+        output_glb(x, y) = input_cgra(x, y) * output_cgra(x, y);
         hw_output(x, y) = output_glb(x, y);
         output(x, y) = u16(hw_output(x, y));
 

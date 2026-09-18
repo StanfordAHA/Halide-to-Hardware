@@ -76,9 +76,6 @@ int main(int argc, char **argv) {
     std::cout << "using inputs set within process.cpp" << std::endl;
     processor.inputs_preset = true;
 
-    const float wrong_gamma = 1.2f;
-    const float wrong_beta = -0.35f;
-
     auto real_input = Buffer<uint16_t>(vec_width, vec_height);
     for (int y = 0; y < real_input.dim(1).extent(); y++) {
         for (int x = 0; x < real_input.dim(0).extent(); x++) {
@@ -96,14 +93,14 @@ int main(int argc, char **argv) {
         real_bias(x) = float_to_bfloat16_process((static_cast<float>(rand()) / RAND_MAX) * 20.0f - 10.0f);
     }
 
-    // Real gold output: (input - wrong_beta) * (1/wrong_gamma) * weight + bias
+    // Real gold output: normalized input * learned weight + learned bias.
     auto real_output = Buffer<uint16_t>(vec_width, vec_height);
     for (int y = 0; y < real_output.dim(1).extent(); y++) {
         for (int x = 0; x < real_output.dim(0).extent(); x++) {
             float input_val = bfloat16_to_float_process(real_input(x, y));
             float weight_val = bfloat16_to_float_process(real_weight(x));
             float bias_val = bfloat16_to_float_process(real_bias(x));
-            float output_val = (input_val - wrong_beta) * (1.0f / wrong_gamma) * weight_val + bias_val;
+            float output_val = input_val * weight_val + bias_val;
             real_output(x, y) = float_to_bfloat16_process(output_val);
         }
     }

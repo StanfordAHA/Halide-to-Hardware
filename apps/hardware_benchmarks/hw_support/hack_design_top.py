@@ -410,6 +410,16 @@ class SelectedDesignHacker:
         self._assert_strait_names_match_halide_meta(bin_path)
 
 
+    def hack_for_layer_norm_fp_rv(self, json_path, bin_path):
+        """One GLB read/write: center, normalize, then channel-wise affine."""
+        from strait.coreir_backend.templates.layer_norm_bf16 import emit_layer_norm_bf16_design
+
+        unroll = int(self.halide_gen_args_dict["glb_i"])
+        width = int(self.halide_gen_args_dict["vec_width"])
+        height = int(self.halide_gen_args_dict["vec_height"])
+        emit_layer_norm_bf16_design(unroll, width, height, bin_path)
+        self._assert_strait_names_match_halide_meta(bin_path)
+
     def hack_for_layer_norm_pass1_fp_rv(self, json_path, bin_path):
         """
         Replace the Halide-generated design_top.json with a strait-generated
@@ -446,13 +456,13 @@ class SelectedDesignHacker:
     def hack_for_layer_norm_pass2_fp_rv(self, json_path, bin_path):
         """
         Replace the Halide-generated design_top.json with a strait-generated
-        sum-of-squares + rsqrt-and-scale + broadcast mul-add graph for
+        sum-of-squares + rsqrt-and-scale + broadcast multiply graph for
         layer_norm_pass2_fp.
 
         unroll = glb_i (tree width / parallel lanes).
         vec_length = vec_width, num_vecs = vec_height (from halide_gen_args).
-        gamma/beta default to the Halide-hardcoded 1.2 / -0.35; override via env
-        if future app variants need different affine params.
+        Only normalize here; learned per-channel gamma/beta are applied in
+        pass 3.
         """
         from strait.coreir_backend.templates.reduction_sum_of_sqr_sqrt_recip_mul_elementwise_mul_add_bf16 import (
             emit_reduction_sum_of_sqr_sqrt_recip_mul_elementwise_mul_add_bf16_design,
@@ -461,13 +471,11 @@ class SelectedDesignHacker:
         unroll = int(self.halide_gen_args_dict["glb_i"])
         vec_length = int(self.halide_gen_args_dict["vec_width"])
         num_vecs = int(self.halide_gen_args_dict["vec_height"])
-        gamma = float(os.environ.get("LAYER_NORM_GAMMA", 1.2))
-        beta = float(os.environ.get("LAYER_NORM_BETA", -0.35))
 
-        print(f"\033[94m[INFO] Generating strait layer_norm_pass2 (sum-of-squares + rsqrt + broadcast mul-add) design: "
-              f"unroll={unroll}, vec_length={vec_length}, num_vecs={num_vecs}, gamma={gamma}, beta={beta}\033[0m")
+        print(f"\033[94m[INFO] Generating strait layer_norm_pass2 (sum-of-squares + rsqrt + broadcast mul) design: "
+              f"unroll={unroll}, vec_length={vec_length}, num_vecs={num_vecs}\033[0m")
         emit_reduction_sum_of_sqr_sqrt_recip_mul_elementwise_mul_add_bf16_design(
-            unroll, vec_length, num_vecs, bin_path, gamma=gamma, beta=beta
+            unroll, vec_length, num_vecs, bin_path
         )
         print(f"\033[92m[INFO] Replaced design_top.json at {json_path}\033[0m")
 
@@ -483,19 +491,24 @@ class SelectedDesignHacker:
 
         self._assert_strait_names_match_halide_meta(bin_path)
 
+    def hack_for_rms_norm_fp_rv(self, json_path, bin_path):
+        """One GLB read/write: RMS normalization and per-channel gamma."""
+        from strait.coreir_backend.templates.rms_norm_bf16 import emit_rms_norm_bf16_design
+
+        emit_rms_norm_bf16_design(
+            int(self.halide_gen_args_dict["glb_i"]),
+            int(self.halide_gen_args_dict["vec_width"]),
+            int(self.halide_gen_args_dict["vec_height"]), bin_path,
+        )
+        self._assert_strait_names_match_halide_meta(bin_path)
+
     def hack_for_rms_norm_pass1_fp_rv(self, json_path, bin_path):
         """
         Replace the Halide-generated design_top.json with a strait-generated
         sum-of-squares + rsqrt + broadcast elementwise-mul graph (RMS norm).
 
-        Reuses the layer_norm_pass2 template with:
-          - top_module="rms_norm_pass1_fp"
-          - gamma=1.0 (numerator = sqrt(N) instead of sqrt(N)*gamma)
-          - has_beta=False (no trailing beta add after elementwise fp_mul)
-          - lane_to_stencil: mirror gold's Halide-scheduler stencil permutation
-            on BOTH input and output sides, so the new design's wiring matches
-            gold's exactly and gold's path_balancing values apply to the same
-            physical wires they balanced in gold.
+        Reuses the layer_norm_pass2 normalization template with
+        top_module="rms_norm_pass1_fp" and uncentered input activations.
         """
         from strait.coreir_backend.templates.reduction_sum_of_sqr_sqrt_recip_mul_elementwise_mul_add_bf16 import (
             emit_reduction_sum_of_sqr_sqrt_recip_mul_elementwise_mul_add_bf16_design,
@@ -509,8 +522,7 @@ class SelectedDesignHacker:
               f"unroll={unroll}, vec_length={vec_length}, num_vecs={num_vecs}\033[0m")
         emit_reduction_sum_of_sqr_sqrt_recip_mul_elementwise_mul_add_bf16_design(
             unroll, vec_length, num_vecs, bin_path,
-            gamma=1.0, beta=0.0,
-            top_module="rms_norm_pass1_fp", has_beta=False,
+            top_module="rms_norm_pass1_fp",
         )
         print(f"\033[92m[INFO] Replaced design_top.json at {json_path}\033[0m")
 
@@ -529,12 +541,11 @@ class SelectedDesignHacker:
     def hack_for_layer_norm_pass3_fp_rv(self, json_path, bin_path):
         """
         Replace the Halide-generated design_top.json with a strait-generated
-        affine rescale graph: ((input * (1/gamma)) + (-beta/gamma)) * weight + bias.
+        affine graph: input * weight + bias.
 
         unroll = glb_i (parallel lanes).
         vec_length = vec_width, num_vecs = vec_height (from halide_gen_args).
-        gamma/beta default to the Halide-hardcoded 1.2 / -0.35; override via env
-        if future app variants need different affine params.
+        Weight/bias carry the learned per-channel gamma/beta values.
         """
         from strait.coreir_backend.templates.elementwise_mul_add_mul_add_bf16 import (
             emit_elementwise_mul_add_mul_add_bf16_design,
@@ -543,13 +554,11 @@ class SelectedDesignHacker:
         unroll = int(self.halide_gen_args_dict["glb_i"])
         vec_length = int(self.halide_gen_args_dict["vec_width"])
         num_vecs = int(self.halide_gen_args_dict["vec_height"])
-        gamma = float(os.environ.get("LAYER_NORM_PASS3_GAMMA", 1.2))
-        beta = float(os.environ.get("LAYER_NORM_PASS3_BETA", -0.35))
 
         print(f"\033[94m[INFO] Generating strait layer_norm_pass3 (affine rescale) design: "
-              f"unroll={unroll}, vec_length={vec_length}, num_vecs={num_vecs}, gamma={gamma}, beta={beta}\033[0m")
+              f"unroll={unroll}, vec_length={vec_length}, num_vecs={num_vecs}\033[0m")
         emit_elementwise_mul_add_mul_add_bf16_design(
-            unroll, vec_length, num_vecs, bin_path, gamma=gamma, beta=beta
+            unroll, vec_length, num_vecs, bin_path, buffer_outputs=True
         )
         print(f"\033[92m[INFO] Replaced design_top.json at {json_path}\033[0m")
 

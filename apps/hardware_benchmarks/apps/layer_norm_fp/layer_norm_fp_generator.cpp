@@ -5,20 +5,20 @@ namespace {
 using namespace Halide;
 using namespace Halide::ConciseCasts;
 
-class LayerNormPass3 : public Halide::Generator<LayerNormPass3> {
+class LayerNorm : public Halide::Generator<LayerNorm> {
 public:
     Input<Buffer<uint16_t>> input{ "input", 2 };
     Input<Buffer<uint16_t>> weight{ "weight", 2 };
     Input<Buffer<uint16_t>> bias{ "bias", 2 };
     Output<Buffer<uint16_t>> output{ "output", 2 };
 
-    GeneratorParam<int> vec_width{ "vec_width", 384 };
+    GeneratorParam<int> vec_width{ "vec_width", 768 };
     GeneratorParam<int> vec_height{ "vec_height", 128 };
     GeneratorParam<int> glb_i{ "glb_i", 16 };
 
     void generate() {
         /* THE ALGORITHM */
-        // Apply learned per-channel gamma and beta to normalized input.
+        // Full row LayerNorm with per-channel gamma/beta; matches the split flow (no epsilon).
 
         Var x("x"), y("y");
         Func hw_input("hw_input"), input_host("input_host"), input_glb("input_glb"), input_cgra("input_cgra");
@@ -41,7 +41,15 @@ public:
         bias_glb(x, y) = bias_host(x, y);
         bias_cgra(x, y) = bias_glb(x, y);
 
-        output_cgra(x, y) = input_cgra(x, y) * weight_cgra(x, y) + bias_cgra(x, y);
+        RDom channel(0, vec_width, "channel");
+        Func mean("mean"), centered("centered"), variance("variance");
+        mean(y) = 0.0f;
+        mean(y) += f32(input_cgra(channel, y)) / float(vec_width);
+        centered(x, y) = f32(input_cgra(x, y)) - mean(y);
+        variance(y) = 0.0f;
+        variance(y) += centered(channel, y) * centered(channel, y) / float(vec_width);
+        output_cgra(x, y) = bf16(centered(x, y) / sqrt(variance(y)) *
+                                 f32(weight_cgra(x, y)) + f32(bias_cgra(x, y)));
 
         output_glb(x, y) = output_cgra(x, y);
         hw_output(x, y) = output_glb(x, y);
@@ -91,6 +99,9 @@ public:
             output_cgra.compute_at(output_glb, y_glb).unroll(x, 1);
 
 
+            mean.compute_at(output_glb, y_glb);
+            variance.compute_at(output_glb, y_glb);
+
             // Input streaming
             input_host.compute_root().accelerator_input();
             input_glb.compute_at(hw_output, y_host).unroll(x, 1);
@@ -114,4 +125,4 @@ public:
 
 }  // namespace
 
-HALIDE_REGISTER_GENERATOR(LayerNormPass3, layer_norm_pass3_fp)
+HALIDE_REGISTER_GENERATOR(LayerNorm, layer_norm_fp)

@@ -5,26 +5,24 @@ namespace {
 using namespace Halide;
 using namespace Halide::ConciseCasts;
 
-class LayerNormPass3 : public Halide::Generator<LayerNormPass3> {
+class RMSNorm : public Halide::Generator<RMSNorm> {
 public:
     Input<Buffer<uint16_t>> input{ "input", 2 };
     Input<Buffer<uint16_t>> weight{ "weight", 2 };
-    Input<Buffer<uint16_t>> bias{ "bias", 2 };
     Output<Buffer<uint16_t>> output{ "output", 2 };
 
-    GeneratorParam<int> vec_width{ "vec_width", 384 };
-    GeneratorParam<int> vec_height{ "vec_height", 128 };
+    GeneratorParam<int> vec_width{ "vec_width", 2048 };
+    GeneratorParam<int> vec_height{ "vec_height", 64 };
     GeneratorParam<int> glb_i{ "glb_i", 16 };
 
     void generate() {
         /* THE ALGORITHM */
-        // Apply learned per-channel gamma and beta to normalized input.
+        // Per-row RMSNorm and per-channel gamma; the split flow omits epsilon.
 
         Var x("x"), y("y");
         Func hw_input("hw_input"), input_host("input_host"), input_glb("input_glb"), input_cgra("input_cgra");
         Func hw_weight("hw_weight"), weight_host("weight_host"), weight_glb("weight_glb"), weight_cgra("weight_cgra");
-        Func hw_bias("hw_bias"), bias_host("bias_host"), bias_glb("bias_glb"), bias_cgra("bias_cgra");
-        Func hw_output("hw_output"), output_glb("output_glb"), output_cgra("output_cgra"), sum_cgra("sum_cgra");
+        Func hw_output("hw_output"), output_glb("output_glb"), output_cgra("output_cgra");
 
         hw_input(x, y) = bf16(input(x, y));
         input_host(x, y) = hw_input(x, y);
@@ -36,12 +34,12 @@ public:
         weight_glb(x, y) = weight_host(x, y);
         weight_cgra(x, y) = weight_glb(x, y);
 
-        hw_bias(x, y) = bf16(bias(x, y));
-        bias_host(x, y) = hw_bias(x, y);
-        bias_glb(x, y) = bias_host(x, y);
-        bias_cgra(x, y) = bias_glb(x, y);
-
-        output_cgra(x, y) = input_cgra(x, y) * weight_cgra(x, y) + bias_cgra(x, y);
+        RDom channel(0, vec_width, "channel");
+        Func variance("variance");
+        variance(y) = 0.0f;
+        variance(y) += f32(input_cgra(channel, y)) * f32(input_cgra(channel, y)) / float(vec_width);
+        output_cgra(x, y) = bf16(f32(input_cgra(x, y)) / sqrt(variance(y)) *
+                                 f32(weight_cgra(x, y)));
 
         output_glb(x, y) = output_cgra(x, y);
         hw_output(x, y) = output_glb(x, y);
@@ -57,10 +55,6 @@ public:
             weight_host.bound(x, 0, vec_width).bound(y, 0, vec_height);
             weight_glb.bound(x, 0, vec_width).bound(y, 0, vec_height);
             weight_cgra.bound_extent(x, vec_width);
-
-            bias_host.bound(x, 0, vec_width).bound(y, 0, vec_height);
-            bias_glb.bound(x, 0, vec_width).bound(y, 0, vec_height);
-            bias_cgra.bound_extent(x, vec_width);
 
             output.bound(x, 0, vec_width).bound(y, 0, vec_height);
             hw_output.bound(x, 0, vec_width).bound(y, 0, vec_height);
@@ -90,6 +84,7 @@ public:
             // L1 loop level
             output_cgra.compute_at(output_glb, y_glb).unroll(x, 1);
 
+            variance.compute_at(output_glb, y_glb);
 
             // Input streaming
             input_host.compute_root().accelerator_input();
@@ -101,11 +96,6 @@ public:
             weight_glb.compute_at(hw_output, y_host).unroll(x, 1);
             weight_cgra.compute_at(output_glb, y_glb).unroll(x, 1);
 
-            // Bias streaming
-            bias_host.compute_root().accelerator_input();
-            bias_glb.compute_at(hw_output, y_host).unroll(x, 1);
-            bias_cgra.compute_at(output_glb, y_glb).unroll(x, 1);
-
         } else {  // schedule to CPU
             output_cgra.compute_root().unroll(x, glb_i);
         }
@@ -114,4 +104,4 @@ public:
 
 }  // namespace
 
-HALIDE_REGISTER_GENERATOR(LayerNormPass3, layer_norm_pass3_fp)
+HALIDE_REGISTER_GENERATOR(RMSNorm, rms_norm_fp)

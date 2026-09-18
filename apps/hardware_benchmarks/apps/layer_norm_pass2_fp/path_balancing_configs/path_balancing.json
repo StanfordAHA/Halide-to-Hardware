@@ -32,11 +32,10 @@
         "p22": 4,
         "p24": 2,
         "p25": 2,
-        "p73": 2,
-        "p67": 4,
-        "p71": 8,
-        "p72": 2,
-        "p68": 4
+        "p40": 2,
+        "p35": 4,
+        "p38": 8,
+        "p39": 2
     },
     "total_stream_lengths": {
         "p0": 3072,
@@ -71,50 +70,48 @@
         "p22": 3072,
         "p24": 3072,
         "p25": 3072,
-        "p73": 128,
-        "p67": 128,
-        "p71": 128,
-        "p72": 128,
-        "p68": 128
+        "p40": 128,
+        "p35": 128,
+        "p38": 128,
+        "p39": 128
     },
     "name_to_id": {
-        "elementwise_add_pe_0": "p0",
-        "elementwise_add_pe_1": "p1",
-        "elementwise_add_pe_10": "p2",
-        "elementwise_add_pe_11": "p3",
-        "elementwise_add_pe_12": "p4",
-        "elementwise_add_pe_13": "p5",
-        "elementwise_add_pe_14": "p6",
-        "elementwise_add_pe_15": "p7",
-        "elementwise_add_pe_16": "p8",
-        "elementwise_add_pe_17": "p9",
-        "elementwise_add_pe_18": "p10",
-        "elementwise_add_pe_19": "p11",
-        "elementwise_add_pe_2": "p12",
-        "elementwise_add_pe_20": "p13",
-        "elementwise_add_pe_21": "p14",
-        "elementwise_add_pe_22": "p15",
-        "elementwise_add_pe_23": "p16",
-        "elementwise_add_pe_24": "p17",
-        "elementwise_add_pe_25": "p18",
-        "elementwise_add_pe_26": "p19",
-        "elementwise_add_pe_27": "p20",
-        "elementwise_add_pe_28": "p21",
-        "elementwise_add_pe_29": "p22",
-        "elementwise_add_pe_3": "p23",
-        "elementwise_add_pe_30": "p24",
-        "elementwise_add_pe_31": "p25",
-        "elementwise_add_pe_4": "p26",
-        "elementwise_add_pe_5": "p27",
-        "elementwise_add_pe_6": "p28",
-        "elementwise_add_pe_7": "p29",
-        "elementwise_add_pe_8": "p30",
-        "elementwise_add_pe_9": "p31",
-        "layer_norm_pass2_fp_cnvexp2f_pe": "p67",
-        "layer_norm_pass2_fp_dummy_max_nop_pe": "p68",
-        "layer_norm_pass2_fp_getfint_pe": "p71",
-        "layer_norm_pass2_fp_getmant_div_pe": "p72",
-        "layer_norm_pass2_fp_getmant_log_pe": "p73"
+        "elementwise_mul_pe_0": "p0",
+        "elementwise_mul_pe_1": "p1",
+        "elementwise_mul_pe_10": "p2",
+        "elementwise_mul_pe_11": "p3",
+        "elementwise_mul_pe_12": "p4",
+        "elementwise_mul_pe_13": "p5",
+        "elementwise_mul_pe_14": "p6",
+        "elementwise_mul_pe_15": "p7",
+        "elementwise_mul_pe_16": "p8",
+        "elementwise_mul_pe_17": "p9",
+        "elementwise_mul_pe_18": "p10",
+        "elementwise_mul_pe_19": "p11",
+        "elementwise_mul_pe_2": "p12",
+        "elementwise_mul_pe_20": "p13",
+        "elementwise_mul_pe_21": "p14",
+        "elementwise_mul_pe_22": "p15",
+        "elementwise_mul_pe_23": "p16",
+        "elementwise_mul_pe_24": "p17",
+        "elementwise_mul_pe_25": "p18",
+        "elementwise_mul_pe_26": "p19",
+        "elementwise_mul_pe_27": "p20",
+        "elementwise_mul_pe_28": "p21",
+        "elementwise_mul_pe_29": "p22",
+        "elementwise_mul_pe_3": "p23",
+        "elementwise_mul_pe_30": "p24",
+        "elementwise_mul_pe_31": "p25",
+        "elementwise_mul_pe_4": "p26",
+        "elementwise_mul_pe_5": "p27",
+        "elementwise_mul_pe_6": "p28",
+        "elementwise_mul_pe_7": "p29",
+        "elementwise_mul_pe_8": "p30",
+        "elementwise_mul_pe_9": "p31",
+        "layer_norm_pass2_fp_cnvexp2f_pe": "p35",
+        "layer_norm_pass2_fp_getfint_pe": "p38",
+        "layer_norm_pass2_fp_getmant_div_pe": "p39",
+        "layer_norm_pass2_fp_getmant_log_pe": "p40"
     },
     "pe_to_pond": {
         "p0": [
@@ -245,23 +242,19 @@
             true,
             ""
         ],
-        "p73": [
+        "p40": [
             true,
             ""
         ],
-        "p67": [
+        "p35": [
             true,
             ""
         ],
-        "p71": [
+        "p38": [
             true,
             ""
         ],
-        "p72": [
-            true,
-            ""
-        ],
-        "p68": [
+        "p39": [
             true,
             ""
         ]

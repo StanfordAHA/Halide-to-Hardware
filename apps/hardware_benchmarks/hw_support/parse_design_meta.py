@@ -359,9 +359,9 @@ def E64_packing(json_data):
 
     # Assert that the number of inputs and outputs are multiples of 4
     # FIXME: Potentially fix this for apps with two loop levels
-    def process_io(io_entries, unique_positions, pack_x_set):
+    def process_io(io_type, unique_positions, pack_x_set):
         trimmed_entries = []
-        for entry in io_entries:
+        for entry in json_data["IOs"][io_type]:
             # Check per-entry if packing is actually used (any tile at a packed x)
             entry_uses_packing = any(tile["x_pos"] in pack_x_set for tile in entry["io_tiles"])
 
@@ -384,10 +384,11 @@ def E64_packing(json_data):
                     # Apply extent scaling only for packed x-positions
                     # Skip extent scaling if E64_packed was explicitly set to 0
                     if tile["x_pos"] in pack_x_set and tile.get("E64_packed", 1) != 0:
-                        if "extent_multiplier" in tile:
-                            tile["extent_multiplier"] *= 4
-                        else:
-                            tile["extent_multiplier"] = 4
+                        # Input loading already divides the complete tensor by
+                        # the coalesced bank count. Another factor of four
+                        # would overrun both the input file and GLB banks.
+                        if io_type == "outputs":
+                            tile["extent_multiplier"] = tile.get("extent_multiplier", 1) * 4
                         shape_updated = True
 
                     new_io_tiles.append(tile)
@@ -409,8 +410,8 @@ def E64_packing(json_data):
                 trimmed_entries.append(entry)
         return trimmed_entries
 
-    json_data["IOs"]["inputs"] = process_io(json_data["IOs"]["inputs"], unique_input_positions, input_pack_x)
-    json_data["IOs"]["outputs"] = process_io(json_data["IOs"]["outputs"], unique_output_positions, output_pack_x)
+    json_data["IOs"]["inputs"] = process_io("inputs", unique_input_positions, input_pack_x)
+    json_data["IOs"]["outputs"] = process_io("outputs", unique_output_positions, output_pack_x)
 
     return json_data
 

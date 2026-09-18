@@ -80,9 +80,6 @@ int main(int argc, char **argv) {
     std::cout << "using inputs set within process.cpp" << std::endl;
     processor.inputs_preset = true;
 
-    const float gamma = 1.2f;
-    const float beta = -0.35f;
-
     // Input activation
     auto input_activation = Buffer<uint16_t>(vec_width, vec_height);
     for (int y = 0; y < input_activation.dim(1).extent(); y++) {
@@ -111,7 +108,7 @@ int main(int argc, char **argv) {
         }
     }
 
-    // Final gold layer norm output
+    // Gold normalized output; learned per-channel affine is applied in pass 3.
     const float epsilon = 1e-5f;
     auto gold_output = Buffer<uint16_t>(vec_width, vec_height);
     std::vector<float> row_data(vec_width, 0.0f);
@@ -138,8 +135,7 @@ int main(int argc, char **argv) {
         const float inv_std = 1.0f / sqrtf(variance + epsilon);
         for (int x = 0; x < gold_output.dim(0).extent(); x++) {
             const float normalized = (row_data[x] - mean) * inv_std;
-            const float layer_norm_val = normalized * gamma + beta;
-            gold_output(x, y) = float_to_bfloat16_process(layer_norm_val);
+            gold_output(x, y) = float_to_bfloat16_process(normalized);
         }
     }
 

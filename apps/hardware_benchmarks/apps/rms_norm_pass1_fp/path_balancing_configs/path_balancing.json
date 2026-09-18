@@ -1,43 +1,75 @@
 {
     "balance_lengths": {
-        "p9": 2,
-        "p15": 2,
-        "p13": 2,
-        "p16": 2,
-        "p4": 2,
-        "p6": 2,
-        "p5": 2,
+        "p9": 8,
+        "p15": 8,
+        "p13": 8,
+        "p16": 8,
+        "p4": 8,
+        "p6": 8,
+        "p5": 8,
         "p28": 8,
         "p26": 8,
-        "p29": 4,
-        "p31": 4,
-        "p2": 2,
-        "p12": 2,
-        "p1": 2,
-        "p23": 2,
-        "p71": 8,
-        "p72": 2,
-        "p68": 8
+        "p29": 8,
+        "p31": 8,
+        "p2": 8,
+        "p12": 8,
+        "p1": 8,
+        "p23": 8,
+        "p70": 8,
+        "p71": 2,
+        "p0": 8,
+        "p3": 8,
+        "p7": 8,
+        "p8": 8,
+        "p10": 8,
+        "p11": 8,
+        "p14": 8,
+        "p17": 8,
+        "p18": 8,
+        "p19": 8,
+        "p20": 8,
+        "p21": 8,
+        "p22": 8,
+        "p24": 8,
+        "p25": 8,
+        "p27": 8,
+        "p30": 8
     },
     "total_stream_lengths": {
-        "p9": 8192,
-        "p15": 8192,
-        "p13": 8192,
-        "p16": 8192,
-        "p4": 8192,
-        "p6": 8192,
-        "p5": 8192,
-        "p28": 8192,
-        "p26": 8192,
-        "p29": 8192,
-        "p31": 8192,
-        "p2": 8192,
-        "p12": 8192,
-        "p1": 8192,
-        "p23": 8192,
-        "p71": 128,
-        "p72": 128,
-        "p68": 128
+        "p9": 4096,
+        "p15": 4096,
+        "p13": 4096,
+        "p16": 4096,
+        "p4": 4096,
+        "p6": 4096,
+        "p5": 4096,
+        "p28": 4096,
+        "p26": 4096,
+        "p29": 4096,
+        "p31": 4096,
+        "p2": 4096,
+        "p12": 4096,
+        "p1": 4096,
+        "p23": 4096,
+        "p70": 64,
+        "p71": 64,
+        "p0": 4096,
+        "p3": 4096,
+        "p7": 4096,
+        "p8": 4096,
+        "p10": 4096,
+        "p11": 4096,
+        "p14": 4096,
+        "p17": 4096,
+        "p18": 4096,
+        "p19": 4096,
+        "p20": 4096,
+        "p21": 4096,
+        "p22": 4096,
+        "p24": 4096,
+        "p25": 4096,
+        "p27": 4096,
+        "p30": 4096
     },
     "name_to_id": {
         "elementwise_mul_pe_1": "p1",
@@ -55,9 +87,25 @@
         "elementwise_mul_pe_6": "p28",
         "elementwise_mul_pe_7": "p29",
         "elementwise_mul_pe_9": "p31",
-        "rms_norm_pass1_fp_dummy_max_nop_pe": "p68",
-        "rms_norm_pass1_fp_getfint_pe": "p71",
-        "rms_norm_pass1_fp_getmant_div_pe": "p72"
+        "rms_norm_pass1_fp_getfint_pe": "p70",
+        "rms_norm_pass1_fp_getmant_div_pe": "p71",
+        "elementwise_mul_pe_0": "p0",
+        "elementwise_mul_pe_11": "p3",
+        "elementwise_mul_pe_15": "p7",
+        "elementwise_mul_pe_16": "p8",
+        "elementwise_mul_pe_18": "p10",
+        "elementwise_mul_pe_19": "p11",
+        "elementwise_mul_pe_21": "p14",
+        "elementwise_mul_pe_24": "p17",
+        "elementwise_mul_pe_25": "p18",
+        "elementwise_mul_pe_26": "p19",
+        "elementwise_mul_pe_27": "p20",
+        "elementwise_mul_pe_28": "p21",
+        "elementwise_mul_pe_29": "p22",
+        "elementwise_mul_pe_30": "p24",
+        "elementwise_mul_pe_31": "p25",
+        "elementwise_mul_pe_5": "p27",
+        "elementwise_mul_pe_8": "p30"
     },
     "pe_to_pond": {
         "p9": [
@@ -120,15 +168,79 @@
             true,
             ""
         ],
+        "p70": [
+            true,
+            ""
+        ],
         "p71": [
             true,
             ""
         ],
-        "p72": [
+        "p0": [
             true,
             ""
         ],
-        "p68": [
+        "p3": [
+            true,
+            ""
+        ],
+        "p7": [
+            true,
+            ""
+        ],
+        "p8": [
+            true,
+            ""
+        ],
+        "p10": [
+            true,
+            ""
+        ],
+        "p11": [
+            true,
+            ""
+        ],
+        "p14": [
+            true,
+            ""
+        ],
+        "p17": [
+            true,
+            ""
+        ],
+        "p18": [
+            true,
+            ""
+        ],
+        "p19": [
+            true,
+            ""
+        ],
+        "p20": [
+            true,
+            ""
+        ],
+        "p21": [
+            true,
+            ""
+        ],
+        "p22": [
+            true,
+            ""
+        ],
+        "p24": [
+            true,
+            ""
+        ],
+        "p25": [
+            true,
+            ""
+        ],
+        "p27": [
+            true,
+            ""
+        ],
+        "p30": [
             true,
             ""
         ]
