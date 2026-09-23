@@ -502,6 +502,8 @@ class SelectedDesignHacker:
             int(self.halide_gen_args_dict["glb_i"]),
             int(self.halide_gen_args_dict["vec_width"]),
             int(self.halide_gen_args_dict["vec_height"]), bin_path,
+            output_unroll=int(self.halide_gen_args_dict.get(
+                "glb_output", self.halide_gen_args_dict["glb_i"])),
         )
         self._assert_strait_names_match_halide_meta(bin_path)
 

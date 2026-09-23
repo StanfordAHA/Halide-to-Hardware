@@ -14,6 +14,8 @@ public:
     GeneratorParam<int> vec_width{ "vec_width", 2048 };
     GeneratorParam<int> vec_height{ "vec_height", 64 };
     GeneratorParam<int> glb_i{ "glb_i", 16 };
+    // The Strait hook scatters the 16 compute lanes into the consumer layout.
+    GeneratorParam<int> glb_output{ "glb_output", 32 };
 
     void generate() {
         /* THE ALGORITHM */
