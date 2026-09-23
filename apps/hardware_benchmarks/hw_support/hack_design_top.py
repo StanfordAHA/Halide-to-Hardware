@@ -417,7 +417,10 @@ class SelectedDesignHacker:
         unroll = int(self.halide_gen_args_dict["glb_i"])
         width = int(self.halide_gen_args_dict["vec_width"])
         height = int(self.halide_gen_args_dict["vec_height"])
-        emit_layer_norm_bf16_design(unroll, width, height, bin_path)
+        input_unroll = int(self.halide_gen_args_dict.get("glb_input", unroll))
+        output_unroll = int(self.halide_gen_args_dict.get("glb_output", unroll))
+        emit_layer_norm_bf16_design(unroll, width, height, bin_path,
+                                   input_unroll=input_unroll, output_unroll=output_unroll)
         self._assert_strait_names_match_halide_meta(bin_path)
 
     def hack_for_layer_norm_pass1_fp_rv(self, json_path, bin_path):

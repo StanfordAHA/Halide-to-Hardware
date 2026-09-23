@@ -15,6 +15,11 @@ public:
     GeneratorParam<int> vec_width{ "vec_width", 768 };
     GeneratorParam<int> vec_height{ "vec_height", 128 };
     GeneratorParam<int> glb_i{ "glb_i", 16 };
+    // Activation layout of the producer; Strait converts this to glb_i lanes
+    // inside the mean-stage MEMs. Coefficients retain glb_i lanes.
+    GeneratorParam<int> glb_input{ "glb_input", 32 };
+    // Reuse the affine-boundary MEMs to scatter into four output GLB tiles.
+    GeneratorParam<int> glb_output{ "glb_output", 32 };
 
     void generate() {
         /* THE ALGORITHM */
