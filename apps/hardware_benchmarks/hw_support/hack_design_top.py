@@ -502,6 +502,8 @@ class SelectedDesignHacker:
             int(self.halide_gen_args_dict["glb_i"]),
             int(self.halide_gen_args_dict["vec_width"]),
             int(self.halide_gen_args_dict["vec_height"]), bin_path,
+            input_unroll=int(self.halide_gen_args_dict.get(
+                "glb_input", self.halide_gen_args_dict["glb_i"])),
             output_unroll=int(self.halide_gen_args_dict.get(
                 "glb_output", self.halide_gen_args_dict["glb_i"])),
         )
