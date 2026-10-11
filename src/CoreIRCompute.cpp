@@ -1871,7 +1871,8 @@ CoreIR_Inst_Args rom_to_coreir(string alloc_name, vector<int> rom_size, Stmt bod
 
     rom_args.gen = gens["rom2"];
     //jdata["init"][0] = 0;
-    rom_args.args = {{"width",CoreIR::Const::make(context,16)},
+    // One CGRA data word per entry (the lake collateral's data_width, default 16)
+    rom_args.args = {{"width",CoreIR::Const::make(context,cgra_data_width())},
                      {"depth",CoreIR::Const::make(context,aligned_total_size)}};
     CoreIR::Values modparams = {{"init", CoreIR::Const::make(context, jdata)}};
     rom_args.selname = "rdata";
