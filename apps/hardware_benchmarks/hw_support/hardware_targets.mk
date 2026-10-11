@@ -239,9 +239,12 @@ mem design_top design_top.json $(BIN)/design_top.json: $(BIN)/map_result/$(TESTN
 
 map: $(BIN)/clockwork_codegen
 	python $(HWSUPPORT)/raw2txt.py $(BIN)
+	# Stage the headers in bin/ first; map_app writes this compile's PE header and its
+	# data-width-specific IO/MEM/pond headers there (never into the shared libs/)
+	cp $(METAMAPPER_PATH)/libs/*_header.json $(BIN)/
 	python $(METAMAPPER_PATH)/scripts/map_$(META_TARGET).py $(BIN)/$(TESTNAME)_compute.json
 	sed -i -e 's/_mapped//g' $(BIN)/$(TESTNAME)_compute_mapped.json
-	cp $(METAMAPPER_PATH)/libs/*_header.json $(BIN)/ && cp $(METAMAPPER_PATH)/libs/*_header.json $(CLOCKWORK_PATH)/ && cp $(METAMAPPER_PATH)/libs/*_header.json $(METAMAPPER_PATH)/../garnet/headers/
+	cp $(BIN)/*_header.json $(CLOCKWORK_PATH)/ && cp $(BIN)/*_header.json $(METAMAPPER_PATH)/../garnet/headers/
 	cd $(BIN) && \
 	CLKWRK_PATH=$(CLOCKWORK_PATH) LD_LIBRARY_PATH=$(CLOCKWORK_PATH)/lib:$(COREIR_DIR)/lib LAKE_PATH=$(LAKE_PATH) LAKE_CONTROLLERS=$(abspath $(BIN)) LAKE_STREAM=$(BIN) COREIR_PATH=$(COREIR_DIR) \
 	./clockwork_codegen compile_mem_use_metamapper 1>mem_cout 2> >(tee -a mem_cout >&2); \
@@ -462,8 +465,17 @@ $(BIN)/%.raw: $(BIN)/%.$(EXT)
 	  echo "Unsupported file format: $(EXT)"; \
   fi
 
+# CGRA data word width: the lake collateral's data_width (LAKE_COLLATERAL_JSON_MEM, set by
+# `aha map`), else 16. It is not a make dependency: `make clean` when it changes.
+CGRA_DATA_WIDTH := $(shell python3 $(HWSUPPORT)/raw2txt.py --data-width)
+
 $(BIN)/%.raw: $(BIN)/%.leraw
+ifeq ($(CGRA_DATA_WIDTH),16)
 	dd conv=swab <$(BIN)/$*.leraw >$(BIN)/$*.raw
+else
+	# CGRA_DATA_WIDTH-bit words: little- to big-endian per word (dd conv=swab is 16-bit only)
+	python3 -c "import numpy as np; w = $(CGRA_DATA_WIDTH) // 8; np.fromfile('$(BIN)/$*.leraw', dtype='<u%d' % w).astype('>u%d' % w).tofile('$(BIN)/$*.raw')"
+endif
 
 io inout inputs inputfiles rawio rawios ioraw ioraws : $(BIN)/design_meta_halide.json
 	python $(HWSUPPORT)/generate_raw_files.py $^

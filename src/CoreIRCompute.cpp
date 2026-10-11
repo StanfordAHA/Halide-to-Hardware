@@ -1,5 +1,7 @@
 #include <iostream>
 #include <fstream>
+#include <cstdlib>
+#include <iterator>
 
 #include "CodeGen_C.h"
 #include "CodeGen_Internal.h"
@@ -263,10 +265,11 @@ map<string, string> coreir_generators(CoreIR::Context* context) {
 int inst_bitwidth(int input_bitwidth) {
   // FIXME: properly create bitwidths 1, 8, 16, 32
   //return input_bitwidth;
+  // Every non-1-bit value is one CGRA data word (the lake collateral's data_width, default 16)
   if (input_bitwidth == 1) {
     return 1;
   } else {
-    return 16;
+    return cgra_data_width();
   }
 }
 
@@ -1960,6 +1963,23 @@ void convert_compute_to_coreir(Expr e, CoreIR_Interface iface,
   design->setDef(def);
 }
 
+int cgra_data_width() {
+  // The CGRA data word width is the lake spec's data_width; `aha map` passes the spec's
+  // collateral in LAKE_COLLATERAL_JSON_MEM (the same file clockwork reads). 16 without one.
+  static const int width = [] {
+    const char* path = getenv("LAKE_COLLATERAL_JSON_MEM");
+    if (!path || !*path) return 16;
+    std::ifstream f(path);
+    internal_assert(f.good()) << "cannot read LAKE_COLLATERAL_JSON_MEM=" << path << "\n";
+    std::string text((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
+    size_t key = text.find("\"data_width\"");
+    if (key == std::string::npos) return 16;
+    size_t colon = text.find(':', key);
+    internal_assert(colon != std::string::npos) << "bad data_width in " << path << "\n";
+    return (int)std::strtol(text.c_str() + colon + 1, nullptr, 10);
+  }();
+  return width;
+}
 
 }
 }

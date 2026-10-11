@@ -59,6 +59,9 @@ CoreIR_Inst_Args rom_to_coreir(std::string, std::vector<int>, Stmt, CoreIR::Cont
 
 void convert_compute_to_coreir(Expr, CoreIR_Interface, std::vector<CoreIR_Inst_Args>, CoreIR::Context*);
 
+/** CGRA data word width in bits: the lake collateral's data_width (LAKE_COLLATERAL_JSON_MEM), 16 without one. */
+int cgra_data_width();
+
 
 }  // namespace Internal
 }  // namespace Halide

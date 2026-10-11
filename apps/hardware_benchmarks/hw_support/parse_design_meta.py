@@ -8,6 +8,9 @@ import copy
 import traceback
 from voyager.scripts.aha_flow.glb_dma_config import get_glb_dma_config
 
+# CGRA data word width in bits: the fabric's (lake spec) data_width, passed by `aha pnr`
+CGRA_DATA_WIDTH = 16
+
 def atoi(text):
     return int(text) if text.isdigit() else text
 
@@ -27,6 +30,7 @@ def parseArguments():
     parser.add_argument("--place", help="design.place: parse IO placement", type=str, default=None)
     parser.add_argument("--shuffle", help="update design_meta.json file to use shuffled data", action='store_true')
     parser.add_argument("--mu_tiling", default="", type=str, help="specify the output tiling used by the matrix unit. Need thiss to modify design_meta with the address gen config, based on the tiling information.")
+    parser.add_argument("--data-width", default=16, type=int, help="CGRA data word width in bits (the lake spec data_width the fabric was built at)")
     # Parse arguments
     args = parser.parse_args()
 
@@ -595,7 +599,6 @@ def hack_addr_gen_for_k_dim_host_tiling(meta):
 
 def hack_config_for_bank_toggle_mode(meta):
     BANK_DATA_WIDTH = 64
-    CGRA_DATA_WIDTH = 16
 
     # Duplicate output tile info for bank toggle mode as fake IO tiles, and attach real output tile number to outputs
     for output_index, output_dict in enumerate(meta["IOs"]["outputs"]):
@@ -679,7 +682,9 @@ def hack_config_for_bank_toggle_mode(meta):
 
 
 def main():
+    global CGRA_DATA_WIDTH
     args = parseArguments()
+    CGRA_DATA_WIDTH = args.data_width
 
     with open(args.DesignMeta, "r") as designMeta:
         meta = json.load(designMeta)

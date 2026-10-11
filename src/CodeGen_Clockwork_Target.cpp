@@ -33,6 +33,23 @@ using std::ofstream;
 
 namespace {
 
+// On a CGRA whose data width (the lake collateral's data_width) is not 16, every non-1-bit
+// value is one CGRA data word of that many bits (the same rule as CoreIRCompute's
+// inst_bitwidth). At 16 Halide's own width is kept, as before.
+bool cgra_wide_words() {
+  return cgra_data_width() != 16;
+}
+
+int cgra_word_bits(int bits) {
+  return (cgra_wide_words() && bits != 1) ? cgra_data_width() : bits;
+}
+
+// C type of a host-side data-file element: a CGRA word when the width is not 16
+std::string cgra_word_c_type(const Halide::Type& t, const std::string& halide_c_type) {
+  int bits = cgra_word_bits(t.bits());
+  return bits == t.bits() ? halide_c_type : "uint" + std::to_string(bits) + "_t";
+}
+
 class ContainForLoop : public IRVisitor {
     using IRVisitor::visit;
     void visit(const For *op) {
@@ -1096,9 +1113,9 @@ void print_clockwork_execution_cpp(string appname, const map<string,vector<HW_Ar
     vector<int> elt_sizes(num_buffers);
     for (size_t i = 0; i < num_buffers; i++) {
       if (!closure_args[i].is_stencil) {
-        elt_sizes[i] = closure_args[i].scalar_type.bits();
+        elt_sizes[i] = cgra_word_bits(closure_args[i].scalar_type.bits());
       } else {
-        elt_sizes[i] = closure_args[i].stencil_type.elemType.bits();
+        elt_sizes[i] = cgra_word_bits(closure_args[i].stencil_type.elemType.bits());
       }
     }
 
@@ -1161,7 +1178,7 @@ void print_clockwork_execution_cpp(string appname, const map<string,vector<HW_Ar
         // create vector for input tile
         ostringstream oss;
         oss << type_to_c_type(closure_args[i].stencil_type.elemType);
-        string type_name = oss.str();
+        string type_name = cgra_word_c_type(closure_args[i].stencil_type.elemType, oss.str());
         stream << "\tstd::vector<" << type_name << "> "<< tile_name << "(";
         for (size_t edim=0; edim<extents.size(); ++edim) {
           stream << (edim==0 ? "":"*") << extents[edim];
@@ -1218,10 +1235,10 @@ void print_clockwork_execution_cpp(string appname, const map<string,vector<HW_Ar
 
         // save input to file
         string inputname = printname(closure_args[i].name);
-        if (!((elt_sizes[i]==1) || (elt_sizes[i]==8) || (elt_sizes[i]==16))) {
+        if (!((elt_sizes[i]==1) || (elt_sizes[i]==8) || (elt_sizes[i]==16) || (elt_sizes[i]==32) || (elt_sizes[i]==64))) {
           std::cout << inputname << " elt_size=" << elt_sizes[i] << std::endl;
         }
-        internal_assert((elt_sizes[i]==1 || elt_sizes[i]==8) || (elt_sizes[i]==16));
+        internal_assert((elt_sizes[i]==1 || elt_sizes[i]==8) || (elt_sizes[i]==16) || (elt_sizes[i]==32) || (elt_sizes[i]==64));
         if (elt_sizes[i] != 1) {
           string extension = elt_sizes[i] == 8 ? ".raw" : ".leraw";
           stream << "\tofstream " << inputname << "_file(\"bin/" << inputname << extension << "\", ios::binary);\n";
@@ -1262,7 +1279,7 @@ void print_clockwork_execution_cpp(string appname, const map<string,vector<HW_Ar
       // create vector for output tile
       ostringstream oss;
       oss << type_to_c_type(closure_args[num_buffers-1].stencil_type.elemType);
-      string type_name = oss.str();
+      string type_name = cgra_word_c_type(closure_args[num_buffers-1].stencil_type.elemType, oss.str());
       stream << "\tstd::vector<" << type_name << "> "<< tile_name << "(";
       for (size_t edim=0; edim<extents.size(); ++edim) {
         stream << (edim==0 ? "":"*") << extents[edim];
@@ -1313,7 +1330,7 @@ void print_clockwork_execution_cpp(string appname, const map<string,vector<HW_Ar
 
       // save output to file
       string outputname = printname(stencil_arg.name);
-      internal_assert((elt_size==1) || (elt_size==8) || (elt_size==16)) << "size is " << std::to_string(elt_size) << " for output\n";
+      internal_assert((elt_size==1) || (elt_size==8) || (elt_size==16) || (elt_size==32) || (elt_size==64)) << "size is " << std::to_string(elt_size) << " for output\n";
       if (elt_size != 1) {
         string extension = elt_size == 8 ? ".raw" : ".leraw";
         stream << "\tofstream " << "hw_output_file(\"bin/hw_output" << extension << "\", ios::binary);\n";
@@ -1348,7 +1365,7 @@ void print_clockwork_execution_cpp(string appname, const map<string,vector<HW_Ar
         for (size_t i = 0; i < num_buffers - 1; i++) {
           if (!closure_args[i].is_stencil) { continue; } // skip non-stencil inputs
           string input_name = printname(closure_args[i].name);
-          int bitwidth = 16;
+          int bitwidth = cgra_wide_words() ? cgra_word_bits(closure_args[i].stencil_type.elemType.bits()) : 16;
           //Region bounds = closure_args[i].stencil_type.bounds;
           //for (size_t j = 0; j < bounds.size(); j++) {
           //  shape.emplace_back(to_int(bounds[j].extent));
@@ -1366,7 +1383,7 @@ void print_clockwork_execution_cpp(string appname, const map<string,vector<HW_Ar
 
       HW_Arg output_stencil_arg = closure_args[num_buffers-1];
       string output_name = printname(output_stencil_arg.name);
-      int bitwidth = 16;
+      int bitwidth = cgra_wide_words() ? cgra_word_bits(output_stencil_arg.stencil_type.elemType.bits()) : 16;
       //Region bounds = output_stencil_arg.stencil_type.bounds;
       //for (size_t j = 0; j < bounds.size(); j++) {
       //  shape.emplace_back(to_int(bounds[j].extent));
@@ -1548,12 +1565,12 @@ void add_stores_to_coreir_interface(CoreIR_Interface& iface,
     //uint total_bitwidth = merged_args[argname].size() * esize;
     uint total_bitwidth = 0;
     for (auto arg : merged_args[argname]) {
-      total_bitwidth += arg.type.bits();
+      total_bitwidth += cgra_word_bits(arg.type.bits());
     }
 
     vector<CoreIR_Port> iports;
     for (auto arg_component : merged_args[argname]) {
-      uint esize = arg_component.type.bits();
+      uint esize = cgra_word_bits(arg_component.type.bits());
       if (false) {//merged_args[argname].size() == 1) {
         iports.push_back(CoreIR_Port({printname(arg_component.bufname), esize}));
       } else {
@@ -2122,7 +2139,7 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Provide *op) {
   compute_stream << std::endl << "//store is: " << Stmt(op);
   internal_assert(op->values.size() == 1);
   //auto output_bits = output == printname(op->name) ? 16 : op->values[0].type().bits();
-  auto output_bits = op->values[0].type().bits();
+  auto output_bits = cgra_word_bits(op->values[0].type().bits());
   compute_stream << "hw_uint<" << output_bits << "> " << func_name << "(";
   for (size_t i=0; i<arg_order.size(); ++i) {
     if (i != 0) { compute_stream << ", "; }
@@ -2132,7 +2149,7 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Provide *op) {
 
     uint total_bitwidth = 0;
     for (auto arg : merged_args[argname]) {
-      total_bitwidth += arg.type.bits();
+      total_bitwidth += cgra_word_bits(arg.type.bits());
       is_dynamic = is_dynamic || arg.is_dynamic;
     }
 
@@ -2173,7 +2190,7 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Provide *op) {
 
     for (size_t i=0; i<arg_components.size(); ++i) {
       auto arg_component = arg_components[i];
-      int esize = arg_component.type.bits();
+      int esize = cgra_word_bits(arg_component.type.bits());
       string type = type_to_c_type(arg_component.type);
       string cast = arg_component.type.is_bfloat() ? "bfloat16_t::make_from_bits" : "(" + type + ") ";
       compute_stream << "  " << type << " _" << printname(arg_component.name) << " = "
@@ -2207,6 +2224,7 @@ void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::visit(const Provide *op) {
 }
 
 void CodeGen_Clockwork_Target::CodeGen_Clockwork_C::add_buffer(const string& buffer_name, int width) {
+  width = cgra_word_bits(width);
   if (buffers.count(buffer_name) == 0) {
     //std::cout << buffer_name << " added" << std::endl;
     memory_stream << "  prg.buffer_port_widths[\""
