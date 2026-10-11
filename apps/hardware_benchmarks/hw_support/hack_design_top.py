@@ -8349,13 +8349,19 @@ class GlobalDesignHacker:
                 if "init" not in metadata or not isinstance(metadata["init"], list):
                     continue
 
-                # Remove all zeros from the init list
+                # Remove the trailing zeros (padding) from the init list. Only trailing ones:
+                # the list is indexed by address, so dropping an interior or leading zero
+                # shifts every later entry (camera_pipeline_2x2's curve, curve[0] = 0, read
+                # back curve[a + 1] for address a).
                 original_length = len(metadata["init"])
-                metadata["init"] = [x for x in metadata["init"] if x != 0]
+                init = list(metadata["init"])
+                while init and init[-1] == 0:
+                    init.pop()
+                metadata["init"] = init
                 removed_count = original_length - len(metadata["init"])
 
                 if removed_count > 0:
-                    print(f"Removed {removed_count} zeros from ROM init in instance '{inst_name}' in module '{mod_name}'")
+                    print(f"Removed {removed_count} trailing zeros from ROM init in instance '{inst_name}' in module '{mod_name}'")
 
         # Overwrite the JSON
         with open(json_path, "w") as f:
