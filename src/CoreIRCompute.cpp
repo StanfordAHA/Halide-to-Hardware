@@ -1358,7 +1358,10 @@ void CreateCoreIRModule::visit(const Load *op) {
 
 void CreateCoreIRModule::visit(const Cast *op) {
   // Looking for i16((i32(a) * i32(b)) / 256);
-  if (op->type.bits() == 16 && op->value.type().bits() == 32) {
+  // mult_middle / mult_high are the PE's middle / high data-width bits of the double-width
+  // product, i.e. >> 8 / >> 16 only on a 16-bit CGRA. At another data width this falls
+  // through to a data-width multiply and a shift, which is exact for 16-bit operands.
+  if (op->type.bits() == 16 && op->value.type().bits() == 32 && cgra_data_width() == 16) {
     //std::cout << "cast is: " << Expr(op) << std::endl;
     int shift_amt;
     Expr e;
