@@ -681,6 +681,18 @@ def hack_config_for_bank_toggle_mode(meta):
     return meta
 
 
+def bitstream_file(bin_directory):
+    """The *.bs in bin_directory: the newest when there are several (the one garnet.py just
+    wrote, not one left behind by an earlier run or a copied app directory)."""
+    bs = [f for f in os.listdir(bin_directory) if f.endswith(".bs")]
+    if not bs:
+        return None
+    newest = max(bs, key=lambda f: os.path.getmtime(os.path.join(bin_directory, f)))
+    if len(bs) > 1:
+        print(f"parse_design_meta: {len(bs)} bitstreams in {bin_directory}; using the newest, {newest}")
+    return newest
+
+
 def main():
     global CGRA_DATA_WIDTH
     args = parseArguments()
@@ -693,10 +705,9 @@ def main():
         #bin_directory = args.DesignMeta.replace("/design_meta_halide.json", "");
         slash_index = args.DesignMeta.rfind("/")
         bin_directory = args.DesignMeta[0:slash_index]
-        for file in os.listdir(bin_directory):
-            if file.endswith(".bs"):
-                meta["testing"]["bitstream"] = file
-                break
+        bs = bitstream_file(bin_directory)
+        if bs is not None:
+            meta["testing"]["bitstream"] = bs
 
         if args.top != None:
             parseDesignTop(meta, args.top)
