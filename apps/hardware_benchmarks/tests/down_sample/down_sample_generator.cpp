@@ -23,7 +23,9 @@ public:
         Func hw_input("hw_input");
         hw_input(x, y) = u16(input(x, y));;
 
-        max_pool(x, y) = maximum(hw_input(x * stride + r.x, y * stride + r.y));
+        // explicit reduction (not the inline maximum()) so the schedule can unroll it
+        max_pool(x, y) = u16(0);
+        max_pool(x, y) = max(max_pool(x, y), hw_input(x * stride + r.x, y * stride + r.y));
 
         Func hw_output("hw_output");
         hw_output(x, y) = max_pool(x, y);
@@ -60,9 +62,7 @@ public:
             .hw_accelerate(xi, xo);
 
           max_pool.compute_at(hw_output, xo);
-
-          // there is no handle to perform below unroll
-          //max_pool.unroll(r.x).unroll(r.y);
+          max_pool.update().unroll(r.x).unroll(r.y);
 
           hw_input.stream_to_accelerator();
 
