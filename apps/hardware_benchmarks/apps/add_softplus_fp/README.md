@@ -94,17 +94,12 @@ Resources per pass: 8 lanes, 104 PEs and 52 MEMs. Each lane uses 13 PEs and
 aha regress '{"width":28,"height":16,"cols_removed":12,"mu_oc_0":32,"glb_tests_fp_RV":["apps/add_softplus_fp_RV_E64_MB"]}' --env-parameters pass<k>
 ```
 
-for k = 0 to 3 (no `--env-parameters` runs pass 0). Bit-exact check
-afterwards: `python strait/coreir_backend/zircon_tools/kernel_models.py
-softplus <this app dir>`.
+for k = 0 to 3 (no `--env-parameters` runs pass 0).
 
 ## Validation
 
 Each pass, `apps/add_softplus_fp_RV_E64_MB` with `--env-parameters pass<k>`,
-passes the regression FP check. All 16,384 RTL outputs of each pass match a
-bit-accurate model of the PE chain bit for bit. That model includes the
-Zircon multiplier rounding (CW_fp_mult with 3 extra bits, rounded toward
-zero, then RNE on those bits).
+passes the regression FP check.
 
 Against an FP64 reference (inputs in [-8, 8], bias in [-4, 4]): max relative
 error 6.4%, mean 0.60%. The largest errors are at very negative `s`, where the

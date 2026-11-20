@@ -99,14 +99,11 @@ buffers and two ROMs per lane), 40 Ponds (weights and bias), 48 registers and
 aha regress '{"width":28,"height":16,"cols_removed":12,"mu_oc_0":32,"glb_tests_fp_RV":["apps/depthwise_conv1d_silu_fp_RV_E64_MB"]}' --env-parameters pass<k>
 ```
 
-for k = 0 to 3 (no `--env-parameters` runs pass 0). Bit-exact check
-afterwards: `python strait/coreir_backend/zircon_tools/kernel_models.py
-conv1d <this app dir>`.
+for k = 0 to 3 (no `--env-parameters` runs pass 0).
 
 ## Validation
 
-Each pass passes the regression FP check ("mostly passed"). All 8,192 RTL
-outputs of each pass match a bit-accurate model of the PE chain bit for bit.
+Each pass passes the regression FP check ("mostly passed").
 
 The 0.34% of outputs outside the default tolerance all have |out| < 0.009.
 There, the BF16 tap sum cancels and its absolute error (at most 0.002) is

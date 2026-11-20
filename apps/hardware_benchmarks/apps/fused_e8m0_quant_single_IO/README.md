@@ -66,9 +66,6 @@ x = 12–19, output at 20–27, scales at 8 and 10.
 aha regress '{"width":28,"height":16,"cols_removed":12,"mu_oc_0":32,"glb_tests_RV":["apps/fused_e8m0_quant_single_IO_RV_E64_MB"]}'
 ```
 
-Bit-exact check afterwards: `python strait/coreir_backend/zircon_tools/kernel_models.py
-exact <this app dir>`.
-
 ## Validation
 
 `apps/fused_e8m0_quant_single_IO_RV_E64_MB` (group `glb_tests_RV`) passes the

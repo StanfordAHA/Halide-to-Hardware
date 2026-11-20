@@ -81,14 +81,9 @@ Resources: 32 PEs and 32 Ponds, no MEMs, 16 IO tiles.
 aha regress '{"width":28,"height":16,"cols_removed":12,"mu_oc_0":32,"glb_tests_fp_RV":["apps/col_prefix_sum_fp_RV_E64_MB"]}'
 ```
 
-Bit-exact check afterwards: `python strait/coreir_backend/zircon_tools/kernel_models.py
-colsum <this app dir>`.
-
 ## Validation
 
-`apps/col_prefix_sum_fp_RV_E64_MB` passes the regression FP check. All
-131,072 RTL outputs match a bit-accurate model bit for bit. The model starts
-each column at +0 and adds `fp_add(sum, x)` row by row, as the PE does.
+`apps/col_prefix_sum_fp_RV_E64_MB` passes the regression FP check.
 Against an FP64 cumsum: max relative error 3.5%, mean 0.59%.
 
 The kernel takes **4,267 cycles** for 4,096 values per lane, **96.0%** of one

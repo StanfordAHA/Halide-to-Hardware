@@ -61,13 +61,9 @@ are supported.
 aha regress '{"width":28,"height":16,"cols_removed":12,"mu_oc_0":32,"glb_tests_fp_RV":["apps/row_prefix_sum_fp_RV_E64_MB"]}'
 ```
 
-Bit-exact check afterwards: `python strait/coreir_backend/zircon_tools/kernel_models.py
-cumsum <this app dir>`.
-
 ## Validation
 
-`apps/row_prefix_sum_fp_RV_E64_MB` passes the regression FP check. All 65,536
-RTL outputs match a bit-accurate model of the add order bit for bit. Against
+`apps/row_prefix_sum_fp_RV_E64_MB` passes the regression FP check. Against
 an FP64 cumsum: max relative error 1.05%, mean 0.22%.
 
 The kernel takes **2,652 cycles** for 2,048 groups per lane, 77% of one
