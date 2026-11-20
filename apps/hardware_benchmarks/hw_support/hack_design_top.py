@@ -2165,6 +2165,54 @@ class SelectedDesignHacker:
 
         self._assert_strait_names_match_halide_meta(bin_path)
 
+    def hack_for_fused_e8m0_quant_multi_IOs_rv(self, json_path, bin_path):
+        """
+        Replace the Halide-generated design_top.json with the strait one-pass MX
+        quantization graph along dim -2 (block scales over 64 rows of a column
+        and e8m0 quantization in one kernel). Its outputs match
+        get_e8m0_scale_accum_gb_input + apply_e8m0_scale_multi_IOs, so the design
+        meta gets the same shapes and the packed scale output entry.
+        """
+        from strait.coreir_backend.templates.fused_accumulator_quant_pack_bf16 import (
+            emit_fused_accumulator_quant_pack_bf16_design,
+        )
+
+        top_module = "fused_e8m0_quant_multi_IOs"
+        block_size = 64
+        unroll = int(self.halide_gen_args_dict["glb_i"])
+        head_dim = int(self.halide_gen_args_dict["head_dim"])
+        seq_heads_prod = int(self.halide_gen_args_dict["seq_heads_prod"])
+
+        print(f"\033[94m[INFO] Generating strait {top_module} (one-pass MX quantize along dim -2) design: "
+              f"unroll={unroll}, head_dim={head_dim}, seq_heads_prod={seq_heads_prod}\033[0m")
+        emit_fused_accumulator_quant_pack_bf16_design(
+            unroll, head_dim, seq_heads_prod, bin_path, block_size=block_size, top_module=top_module,
+        )
+
+        design_meta_path = os.path.join(bin_path, "design_meta_halide.json")
+        with open(design_meta_path, "r") as f:
+            design_meta = json.load(f)
+        ios = design_meta.setdefault("IOs", {})
+        inputs = ios.setdefault("inputs", [])
+        outputs = ios.setdefault("outputs", [])
+        for entry in inputs:
+            if entry.get("name") == "input_bf_act_host_stencil":
+                entry["shape"] = [head_dim, seq_heads_prod]
+        hw_output_entry = next((e for e in outputs if e.get("name") == "hw_output_mxint8_act_stencil"), None)
+        if hw_output_entry is not None:
+            hw_output_entry["datafile"] = "hw_output_mxint8_act.raw"
+            hw_output_entry["shape"] = [head_dim // 2, seq_heads_prod]
+        outputs.append({
+            "bitwidth": 16,
+            "datafile": "hw_scale_packed_output.raw",
+            "name": "hw_scale_packed_output_stencil",
+            "shape": [head_dim // 2, seq_heads_prod // block_size],
+        })
+        with open(design_meta_path, "w") as f:
+            json.dump(design_meta, f, indent=2)
+
+        self._assert_strait_names_match_halide_meta(bin_path)
+
     def hack_for_apply_e8m0_scale_multi_IOs_rv(self, json_path, bin_path):
         """
         Replace the Halide-generated design_top.json with a strait-generated
