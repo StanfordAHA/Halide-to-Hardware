@@ -1,0 +1,269 @@
+{
+    "balance_lengths": {
+        "p9": 2,
+        "p12": 8,
+        "p14": 8,
+        "p105": 8,
+        "p73": 8,
+        "p104": 16,
+        "p72": 8,
+        "p97": 8,
+        "p65": 8,
+        "p96": 8,
+        "p64": 8,
+        "p107": 8,
+        "p75": 16,
+        "p106": 16,
+        "p74": 8,
+        "p109": 8,
+        "p77": 8,
+        "p108": 8,
+        "p76": 8,
+        "p111": 4,
+        "p79": 4,
+        "p110": 8,
+        "p78": 8,
+        "p99": 8,
+        "p67": 8,
+        "p98": 8,
+        "p66": 8,
+        "p101": 8,
+        "p69": 8,
+        "p100": 4,
+        "p68": 8,
+        "p103": 8,
+        "p71": 8,
+        "p102": 8,
+        "p70": 4,
+        "p2": 2,
+        "p4": 2
+    },
+    "total_stream_lengths": {
+        "p9": 8192,
+        "p12": 8192,
+        "p14": 8192,
+        "p105": 8192,
+        "p73": 8192,
+        "p104": 8192,
+        "p72": 8192,
+        "p97": 8192,
+        "p65": 8192,
+        "p96": 8192,
+        "p64": 8192,
+        "p107": 8192,
+        "p75": 8192,
+        "p106": 8192,
+        "p74": 8192,
+        "p109": 8192,
+        "p77": 8192,
+        "p108": 8192,
+        "p76": 8192,
+        "p111": 8192,
+        "p79": 8192,
+        "p110": 8192,
+        "p78": 8192,
+        "p99": 8192,
+        "p67": 8192,
+        "p98": 8192,
+        "p66": 8192,
+        "p101": 8192,
+        "p69": 8192,
+        "p100": 8192,
+        "p68": 8192,
+        "p103": 8192,
+        "p71": 8192,
+        "p102": 8192,
+        "p70": 8192,
+        "p2": 8192,
+        "p4": 8192
+    },
+    "name_to_id": {
+        "lower_nop_pe_25": "p9",
+        "lower_nop_pe_28": "p12",
+        "lower_nop_pe_30": "p14",
+        "swish_getfint_pe_3": "p105",
+        "swish_dummy_max_nop_pe_3": "p73",
+        "swish_getfint_pe_2": "p104",
+        "swish_dummy_max_nop_pe_2": "p72",
+        "swish_getfint_pe_1": "p97",
+        "swish_dummy_max_nop_pe_1": "p65",
+        "swish_getfint_pe_0": "p96",
+        "swish_dummy_max_nop_pe_0": "p64",
+        "swish_getfint_pe_5": "p107",
+        "swish_dummy_max_nop_pe_5": "p75",
+        "swish_getfint_pe_4": "p106",
+        "swish_dummy_max_nop_pe_4": "p74",
+        "swish_getfint_pe_7": "p109",
+        "swish_dummy_max_nop_pe_7": "p77",
+        "swish_getfint_pe_6": "p108",
+        "swish_dummy_max_nop_pe_6": "p76",
+        "swish_getfint_pe_9": "p111",
+        "swish_dummy_max_nop_pe_9": "p79",
+        "swish_getfint_pe_8": "p110",
+        "swish_dummy_max_nop_pe_8": "p78",
+        "swish_getfint_pe_11": "p99",
+        "swish_dummy_max_nop_pe_11": "p67",
+        "swish_getfint_pe_10": "p98",
+        "swish_dummy_max_nop_pe_10": "p66",
+        "swish_getfint_pe_13": "p101",
+        "swish_dummy_max_nop_pe_13": "p69",
+        "swish_getfint_pe_12": "p100",
+        "swish_dummy_max_nop_pe_12": "p68",
+        "swish_getfint_pe_15": "p103",
+        "swish_dummy_max_nop_pe_15": "p71",
+        "swish_getfint_pe_14": "p102",
+        "swish_dummy_max_nop_pe_14": "p70",
+        "lower_nop_pe_18": "p2",
+        "lower_nop_pe_20": "p4"
+    },
+    "pe_to_pond": {
+        "p9": [
+            true,
+            ""
+        ],
+        "p12": [
+            true,
+            ""
+        ],
+        "p14": [
+            true,
+            ""
+        ],
+        "p105": [
+            true,
+            ""
+        ],
+        "p73": [
+            true,
+            ""
+        ],
+        "p104": [
+            true,
+            ""
+        ],
+        "p72": [
+            true,
+            ""
+        ],
+        "p97": [
+            true,
+            ""
+        ],
+        "p65": [
+            true,
+            ""
+        ],
+        "p96": [
+            true,
+            ""
+        ],
+        "p64": [
+            true,
+            ""
+        ],
+        "p107": [
+            true,
+            ""
+        ],
+        "p75": [
+            true,
+            ""
+        ],
+        "p106": [
+            true,
+            ""
+        ],
+        "p74": [
+            true,
+            ""
+        ],
+        "p109": [
+            true,
+            ""
+        ],
+        "p77": [
+            true,
+            ""
+        ],
+        "p108": [
+            true,
+            ""
+        ],
+        "p76": [
+            true,
+            ""
+        ],
+        "p111": [
+            true,
+            ""
+        ],
+        "p79": [
+            true,
+            ""
+        ],
+        "p110": [
+            true,
+            ""
+        ],
+        "p78": [
+            true,
+            ""
+        ],
+        "p99": [
+            true,
+            ""
+        ],
+        "p67": [
+            true,
+            ""
+        ],
+        "p98": [
+            true,
+            ""
+        ],
+        "p66": [
+            true,
+            ""
+        ],
+        "p101": [
+            true,
+            ""
+        ],
+        "p69": [
+            true,
+            ""
+        ],
+        "p100": [
+            true,
+            ""
+        ],
+        "p68": [
+            true,
+            ""
+        ],
+        "p103": [
+            true,
+            ""
+        ],
+        "p71": [
+            true,
+            ""
+        ],
+        "p102": [
+            true,
+            ""
+        ],
+        "p70": [
+            true,
+            ""
+        ],
+        "p2": [
+            true,
+            ""
+        ],
+        "p4": [
+            true,
+            ""
+        ]
+    }
+}
