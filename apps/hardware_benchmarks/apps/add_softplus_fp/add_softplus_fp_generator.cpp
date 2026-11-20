@@ -1,0 +1,108 @@
+#include "Halide.h"
+
+namespace {
+
+using namespace Halide;
+using namespace Halide::ConciseCasts;
+
+// output(x, y) = softplus(input(x, y) + bias(y)), softplus(s) = ln(1 + exp(s)).
+// Rows (y) are Mamba heads and columns (x) are sequence positions; bias is the
+// per-head dt_bias. The Strait hook replaces the CGRA graph with
+// elementwise_broadcast_add_softplus_bf16 and reads one bias value per row.
+class AddSoftplus : public Halide::Generator<AddSoftplus> {
+public:
+    Input<Buffer<uint16_t>> input{ "input", 2 };
+    Input<Buffer<uint16_t>> bias{ "bias", 2 };
+    Output<Buffer<uint16_t>> output{ "output", 2 };
+
+    GeneratorParam<int> vec_width{ "vec_width", 1024 };
+    GeneratorParam<int> vec_height{ "vec_height", 64 };
+    GeneratorParam<int> glb_i{ "glb_i", 8 };
+
+    void generate() {
+        /* THE ALGORITHM */
+        Var x("x"), y("y");
+        Func hw_input("hw_input"), input_host("input_host"), input_glb("input_glb"), input_cgra("input_cgra");
+        Func hw_bias("hw_bias"), bias_host("bias_host"), bias_glb("bias_glb"), bias_cgra("bias_cgra");
+        Func hw_output("hw_output"), output_glb("output_glb"), output_cgra("output_cgra");
+
+        hw_input(x, y) = bf16(input(x, y));
+        input_host(x, y) = hw_input(x, y);
+        input_glb(x, y) = input_host(x, y);
+        input_cgra(x, y) = input_glb(x, y);
+
+        hw_bias(x, y) = bf16(bias(x, y));
+        bias_host(x, y) = hw_bias(x, y);
+        bias_glb(x, y) = bias_host(x, y);
+        bias_cgra(x, y) = bias_glb(x, y);
+
+        Expr s = f32(input_cgra(x, y)) + f32(bias_cgra(x, y));
+        output_cgra(x, y) = bf16(log(1.0f + exp(s)));
+
+        output_glb(x, y) = output_cgra(x, y);
+        hw_output(x, y) = output_glb(x, y);
+        output(x, y) = u16(hw_output(x, y));
+
+        /* THE SCHEDULE */
+        if (get_target().has_feature(Target::Clockwork)) {
+            input_host.bound(x, 0, vec_width).bound(y, 0, vec_height);
+            input_glb.bound(x, 0, vec_width).bound(y, 0, vec_height);
+            input_cgra.bound_extent(x, vec_width);
+
+            bias_host.bound(x, 0, vec_width).bound(y, 0, vec_height);
+            bias_glb.bound(x, 0, vec_width).bound(y, 0, vec_height);
+            bias_cgra.bound_extent(x, vec_width);
+
+            output.bound(x, 0, vec_width).bound(y, 0, vec_height);
+            hw_output.bound(x, 0, vec_width).bound(y, 0, vec_height);
+            output_glb.bound(x, 0, vec_width).bound(y, 0, vec_height);
+            output_cgra.bound_extent(x, vec_width).bound(y, 0, vec_height);
+
+            Var y_host, y_glb, y_cgra;
+            Var x_host, x_glb, x_cgra;
+
+            // Host loop level
+            hw_output.compute_root();
+            hw_output
+                .split(x, x_host, x_glb, vec_width)
+                .split(y, y_host, y_glb, vec_height)
+                .reorder(x_glb, y_glb, x_host, y_host)
+                .hw_accelerate(y_glb, y_host);
+            hw_output.unroll(x_glb, 1);
+
+            // GLB loop level
+            output_glb.compute_at(hw_output, y_host);
+            output_glb
+                .split(x, x_glb, x_cgra, vec_width)
+                .split(y, y_glb, y_cgra, vec_height)
+                .reorder(x_cgra, y_cgra, x_glb, y_glb);
+            output_glb.unroll(x_cgra, 1);
+
+            output_cgra.compute_at(output_glb, y_glb).unroll(x, 1);
+
+            // Input buffers
+            input_host.compute_root().accelerator_input();
+            input_glb.compute_at(hw_output, y_host).unroll(x, 1);
+            input_cgra.compute_at(output_glb, y_glb)
+                    .split(x, x_glb, x_cgra, vec_width)
+                    .split(y, y_glb, y_cgra, vec_height)
+                    .reorder(x_cgra, y_cgra, x_glb, y_glb)
+                    .unroll(x_cgra, 1);
+
+            bias_host.compute_root().accelerator_input();
+            bias_glb.compute_at(hw_output, y_host).unroll(x, 1);
+            bias_cgra.compute_at(output_glb, y_glb)
+                    .split(x, x_glb, x_cgra, vec_width)
+                    .split(y, y_glb, y_cgra, vec_height)
+                    .reorder(x_cgra, y_cgra, x_glb, y_glb)
+                    .unroll(x_cgra, 1);
+
+        } else {  // schedule to CPU
+            output_cgra.compute_root();
+        }
+    }
+};
+
+}  // namespace
+
+HALIDE_REGISTER_GENERATOR(AddSoftplus, add_softplus_fp)
