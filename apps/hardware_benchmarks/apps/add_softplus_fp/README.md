@@ -76,8 +76,9 @@ their latencies match. Otherwise a value moves only every
   last 1-cycle mismatches: a 2,048-value stream needs Pond length ≥ 2, and
   these edges start at an IO, where no PE is free to hold a Pond.
 
-After PnR, `pb_plan.py` (see below) finds no rigid fork-join with slack in
-any of the four passes.
+After PnR, the path-balancing analysis
+(`strait/coreir_backend/zircon_tools/pb_plan.py`) finds no rigid fork-join
+with slack in any of the four passes.
 
 ROM tables avoid the word 0: `remove_rom_zeros` in `hack_design_top.py` drops
 every 0 from a ROM `init` list, so a 0 would move the later entries to lower
@@ -86,6 +87,16 @@ constants are rounded to nearest even.
 
 Resources per pass: 8 lanes, 104 PEs and 52 MEMs. Each lane uses 13 PEs and
 6 MEMs (2 ROMs and 4 fork buffers); the 4 bias buffers make up the rest.
+
+## Running
+
+```
+aha regress '{"width":28,"height":16,"cols_removed":12,"mu_oc_0":32,"glb_tests_fp_RV":["apps/add_softplus_fp_RV_E64_MB"]}' --env-parameters pass<k>
+```
+
+for k = 0 to 3 (no `--env-parameters` runs pass 0). Bit-exact check
+afterwards: `python strait/coreir_backend/zircon_tools/kernel_models.py
+softplus <this app dir>`.
 
 ## Validation
 

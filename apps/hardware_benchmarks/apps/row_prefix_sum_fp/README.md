@@ -55,6 +55,15 @@ Resources: 94 PEs, 49 MEMs, 47 Ponds, 47 registers; input at x = 12–19,
 output at 20–27. Rows of 2 to 8 groups (`vec_width / 32`) and 2 to 1024 rows
 are supported.
 
+## Running
+
+```
+aha regress '{"width":28,"height":16,"cols_removed":12,"mu_oc_0":32,"glb_tests_fp_RV":["apps/row_prefix_sum_fp_RV_E64_MB"]}'
+```
+
+Bit-exact check afterwards: `python strait/coreir_backend/zircon_tools/kernel_models.py
+cumsum <this app dir>`.
+
 ## Validation
 
 `apps/row_prefix_sum_fp_RV_E64_MB` passes the regression FP check. All 65,536

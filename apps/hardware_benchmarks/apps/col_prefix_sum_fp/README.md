@@ -75,6 +75,15 @@ Two names matter to the flow:
 
 Resources: 32 PEs and 32 Ponds, no MEMs, 16 IO tiles.
 
+## Running
+
+```
+aha regress '{"width":28,"height":16,"cols_removed":12,"mu_oc_0":32,"glb_tests_fp_RV":["apps/col_prefix_sum_fp_RV_E64_MB"]}'
+```
+
+Bit-exact check afterwards: `python strait/coreir_backend/zircon_tools/kernel_models.py
+colsum <this app dir>`.
+
 ## Validation
 
 `apps/col_prefix_sum_fp_RV_E64_MB` passes the regression FP check. All

@@ -60,6 +60,15 @@ tree has no rigid paths that meet again. Three details make this work:
 Resources: 154 PEs, 33 MEMs, 32 Ponds, 43 registers and 18 IO tiles: input at
 x = 12–19, output at 20–27, scales at 8 and 10.
 
+## Running
+
+```
+aha regress '{"width":28,"height":16,"cols_removed":12,"mu_oc_0":32,"glb_tests_RV":["apps/fused_e8m0_quant_single_IO_RV_E64_MB"]}'
+```
+
+Bit-exact check afterwards: `python strait/coreir_backend/zircon_tools/kernel_models.py
+exact <this app dir>`.
+
 ## Validation
 
 `apps/fused_e8m0_quant_single_IO_RV_E64_MB` (group `glb_tests_RV`) passes the
@@ -86,7 +95,7 @@ are latency:
 The fixed cost does not grow with the tensor, so larger shapes come closer
 to one pass per cycle.
 
-`pb_plan.py` (the path-balancing planner used for conv1d) reports slack on
+The path-balancing analysis (`strait/coreir_backend/zircon_tools/pb_plan.py`) reports slack on
 rigid joins between the scale branches, the quantizers, the packers and the
 output packets. Those edges carry one token every two cycles, though, and at
 half rate a fork-join keeps up as long as the long branch is at most three
@@ -98,9 +107,7 @@ plus a second configuration and a second GLB read of the tensor. Kernel
 cycles only; no RTL changes.
 
 The lane Ponds peak at 27 of the 30 words their guard allows. This was
-measured from a waveform: `/aha/tmp/nemotron_port/wave_probe.py` dumps the
-FSDB in the container, then `wave_report.py` and `pond_occupancy.py` run on
-the host, where Verdi's `fsdbreport` is available. Handshake timing does not depend on the data, so the
+measured from an FSDB waveform of the core ports of the lane tiles. Handshake timing does not depend on the data, so the
 figure holds for every input of this shape and this placement. Another
 placement can move it; an overflow drops a word, and the kernel then hangs
 rather than giving wrong results. Two attempts to lower it ran slower and were

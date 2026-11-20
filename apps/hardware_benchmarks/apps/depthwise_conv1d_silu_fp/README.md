@@ -21,7 +21,7 @@ That is how the matrix unit writes a layer's output and reads the next
 layer's input. The input sits in GLB tiles 6–9 and the output in GLB tiles
 10–13.
 
-One channel needs 17 PEs and 5 MEMs, so 32 channels do not fit the 192 PE and
+One channel needs 16 PEs and 7 MEMs, so 32 channels do not fit the 192 PE and
 64 MEM tiles. The kernel therefore runs as four CGRA calls (passes). Pass k
 reads the 8 lanes of GLB tile 6 + k (channels 8k to 8k + 7) and writes GLB
 tile 10 + k. Each pass is the 8-channel kernel with its own weights and
@@ -39,9 +39,8 @@ horizontal tracks of the IO row's tall switch boxes, so they are not used.
 | 2 | 16–17 (8) | 12–15, 18–21 (6, 7, 9, 10) | 22–23 (11) | 24–25 (12) |
 | 3 | 18–19 (9) | 12–17, 20–21 (6, 7, 8, 10) | 22–23 (11) | 26–27 (13) |
 
-The configurations in `application_parameters.json` are `pass0`, `pass1`,
-`pass2_pb` and `pass3_pb` (`default` is `pass0`). The `_pb` passes add
-path-balance Ponds (see below).
+Each pass is a configuration in `application_parameters.json` (`pass0` to
+`pass3`; `default` is `pass0`).
 
 ## How it runs on Zircon
 
@@ -64,87 +63,72 @@ branches have the same latency. Every such fork gets an elastic buffer:
 - **Weights and bias** come from GLB once. Each value is kept in the Pond of
   the PE that uses it and replayed at every position (`get_repeat_pond`).
 - **SiLU** uses the exp ROM and the reciprocal (mantissa) ROM of the Zircon
-  swish template. `y`, `-y/ln2` and `1 + exp(-y)` each feed a long branch
-  directly and a short branch through a FIFO:
-  - `y` reaches the final multiply through a MEM FIFO.
-  - The other two use a Pond FIFO (`get_fifo_pond`) in the tile of the PE
-    that reads it. That Pond is written through the interconnect. Inside a
-    tile, a PE output reaches the tile's Pond without the fan-out handshake.
-    A Pond packed with the PE that writes it would therefore store a value
-    again whenever the other reader stalls.
-  - A Pond's input ready is tied high, so a Pond FIFO must never fill (a
-    held-back write would be lost). These two only hold the latency
-    difference of their fork.
+  swish template. Three values feed two branches that meet again:
+  - `y` reaches the final multiply through a MEM FIFO; that branch waits for
+    the whole SiLU chain.
+  - `-y/ln2` (n) and `1 + exp(-y)` (d) are each written to a dual-read MEM,
+    the value's only consumer (the fork buffers). Read port 0 feeds the
+    branch through the ROM, read port 1 the other branch. Each read port runs
+    ahead as far as its branch lets it, so the two branches need not match.
 
-A Pond FIFO only helps when its branch is the short one. Placement decides
-that. In pass 3 the branch through the `1 + exp(-y)` Pond of lane 5 was the
-long one (21 cycles against 14 through the reciprocal ROM, which is rigid).
-That lane ran at 2 · 14 / 35 = 80% and held the whole output packet to it:
-1,438 cycles. Pass 2 had smaller mismatches of the same kind (1,290 cycles).
+A ROM lookup is rigid, and which branch of a SiLU fork is longer depends on
+the placement. An earlier version put a Pond FIFO on the branch without the
+ROM. A Pond FIFO only helps when its branch is the short one: in one
+placement of pass 3 the d branch through the Pond took 21 cycles against 14
+through the reciprocal ROM. That lane ran at 2 · 14 / 35 = 80% and held the
+whole output packet to it (1,438 cycles), and passes 2 and 3 needed
+path-balance Ponds from a second, fixed-placement run. A buffer at the fork
+works for either branch, so this version needs no path balancing and no
+per-pass configuration files.
 
-### Path balancing
-
-`pb_plan.py` (in `/aha/tmp/nemotron_port`) reads the placed and routed design
-(`design.packed`, `design.route`, `design.place`, `design_top.json`) and
-builds the fork-join graph:
-
-- **Latency model.** One cycle per interconnect REG, 2 per PE, 4 per ROM, 1
-  per FIFO Pond. A register's initial tokens reduce its edge's latency.
-- **Elastic nodes.** Streaming MEM read ports and repeat Ponds are free
-  sources. A FIFO Pond lets its reader wait, but its occupancy must stay at
-  most 28 words.
-- **Packets.** Each E64 multi-bank GLB tile is one input node and one output
-  node.
-
-The planner gives every node a firing time and asks every rigid edge to match
-its latency exactly. It then places path-balance Ponds (lake
-`get_path_balancing_pond`) where the times do not match: at most one per PE
-tile, none in a tile that already holds a Pond, with a length of 1, 2, 4, 8
-or 16. The second run keeps the first run's placement (`manual.place`,
-`MANUAL_PATH_BALANCE_PLACER=1`) and inserts the Ponds
-(`POND_PATH_BALANCING=1`), so the measured skew stays valid.
-
-- Pass 2: 5 Ponds (lengths 2, 1, 1, 2, 1) on the SiLU joins of lanes 0, 4 and 7.
-- Pass 3: one 8-cycle Pond on the reciprocal-ROM input of lane 5's
-  `silu_subexp`.
-
-Passes 0 and 1 need none. After the second run the planner finds no slack
-left; the largest FIFO Pond occupancy is 17 words. The plans are in
-`path_balancing_configs/pass<k>_path_balancing.json` and
-`pass<k>_manual.place`. Before a `pass<k>_pb` run, copy them to
-`path_balancing_configs/path_balancing.json` and `manual.place`;
-`run_pb.sh` does this and also re-plans from a first run.
+After PnR, the path-balancing analysis
+(`strait/coreir_backend/zircon_tools/pb_plan.py`) finds no rigid fork-join
+with slack in any of the four passes.
 
 The aha-agate template relies on hardware Zircon lacks: `fp_mac`, `fp_exp`,
 `fp_recip`, a MEM write port that makes zeros internally, and a Pond write
 filter for weight broadcast. This version uses none of them.
 
-Resources per pass: 136 PEs, 40 MEMs, 56 Ponds (plus up to 5 path-balance
-Ponds), 64 registers and 14 IO tiles.
+Resources per pass: 128 PEs, 56 MEMs (two x buffers, a y FIFO, two fork
+buffers and two ROMs per lane), 40 Ponds (weights and bias), 48 registers and
+14 IO tiles.
+
+## Running
+
+```
+aha regress '{"width":28,"height":16,"cols_removed":12,"mu_oc_0":32,"glb_tests_fp_RV":["apps/depthwise_conv1d_silu_fp_RV_E64_MB"]}' --env-parameters pass<k>
+```
+
+for k = 0 to 3 (no `--env-parameters` runs pass 0). Bit-exact check
+afterwards: `python strait/coreir_backend/zircon_tools/kernel_models.py
+conv1d <this app dir>`.
 
 ## Validation
 
 Each pass passes the regression FP check ("mostly passed"). All 8,192 RTL
 outputs of each pass match a bit-accurate model of the PE chain bit for bit.
 
-The 0.3% of outputs outside the default tolerance all have |out| < 0.009.
+The 0.34% of outputs outside the default tolerance all have |out| < 0.009.
 There, the BF16 tap sum cancels and its absolute error (at most 0.002) is
 large relative to the result. Where |out| > 0.1, the max relative error is
 2.9% and the mean 0.4%. SiLU alone adds at most 1.1%.
 
-| Pass | Without balancing | With balancing |
-|---|---|---|
-| 0 | 1,189 | 1,189 (no Ponds needed) |
-| 1 | 1,184 | 1,184 (no Ponds needed) |
-| 2 | 1,290 | 1,185 |
-| 3 | 1,438 | 1,187 |
-| **Total** | 5,101 | **4,745** |
+| Pass | Kernel cycles |
+|---|---|
+| 0 | 1,224 |
+| 1 | 1,220 |
+| 2 | 1,226 |
+| 3 | 1,221 |
+| **Total** | **4,891** |
 
-The four passes take 4,745 kernel cycles for 1,024 positions × 32 channels
-(86% of one position per cycle per pass). The lanes run at one position per
-cycle; the remaining ~160 cycles per pass are pipeline fill and GLB start-up
-and drain. Kernel cycles exclude configuration, the reconfiguration between
-passes and host transfers. No RTL changes.
+The four passes take 4,891 kernel cycles for 1,024 positions × 32 channels
+(84% of one position per cycle per pass). The lanes run at one position per
+cycle; the remaining ~200 cycles per pass are pipeline fill and GLB start-up
+and drain. The two fork buffers lie on the SiLU path and add about 35 cycles
+of that latency. The Pond-FIFO version with path balancing took 4,745 cycles
+but needed a second PnR run per pass with a saved placement. Kernel cycles
+exclude configuration, the reconfiguration between passes and host
+transfers. No RTL changes.
 
 The SiLU exp ROM covers |y| up to about 88; larger magnitudes overflow the
 exponent arithmetic.
