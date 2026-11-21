@@ -126,10 +126,13 @@ def parseDesignTop(meta, filename: str):
                     new_shape = input_struct["shape"]
                     partial_unroll = num_tiles
                     # remove dimensions that are fully unrolled
-                    while partial_unroll >= new_shape[0]:
+                    while new_shape and partial_unroll >= new_shape[0]:
                         assert(partial_unroll % new_shape[0] == 0), f"input shape has inner dim {new_shape[0]} and trying to unroll {partial_unroll}"
                         partial_unroll //= new_shape[0]
                         new_shape.pop(0)
+                    # Every tile holds a single value: keep a unit inner dimension.
+                    if not new_shape:
+                        new_shape = [1]
                     assert(new_shape[0] % partial_unroll == 0), f"input shape has inner dim {new_shape[0]} and trying to unroll {num_tiles}"
                     new_shape.insert(0,num_tiles)
                     new_shape[1] //= partial_unroll
@@ -142,10 +145,13 @@ def parseDesignTop(meta, filename: str):
                 new_shape = output_struct["shape"]
                 partial_unroll = num_tiles
                 # remove dimensions that are fully unrolled
-                while partial_unroll >= new_shape[0]:
+                while new_shape and partial_unroll >= new_shape[0]:
                     assert(partial_unroll % new_shape[0] == 0), f"output shape has inner dim {new_shape[0]} and trying to unroll {partial_unroll}"
                     partial_unroll //= new_shape[0]
                     new_shape.pop(0)
+                # Every tile holds a single value: keep a unit inner dimension.
+                if not new_shape:
+                    new_shape = [1]
                 assert(new_shape[0] % partial_unroll == 0), f"output shape has inner dim {new_shape[0]} and trying to unroll {partial_unroll}"
                 new_shape.insert(0,num_tiles)
                 new_shape[1] //= partial_unroll

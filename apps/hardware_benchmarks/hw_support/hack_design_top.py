@@ -376,6 +376,95 @@ class SelectedDesignHacker:
 
         self._assert_strait_names_match_halide_meta(bin_path)
 
+    def hack_for_add_softplus_fp_rv(self, json_path, bin_path):
+        """
+        Replace the Halide-generated design_top.json with the strait bias-add +
+        softplus graph. One shared bias IO reads one value per row, so shrink
+        bias_host_stencil in design_meta_halide.json to [vec_height].
+        """
+        from strait.coreir_backend.templates.elementwise_broadcast_add_softplus_bf16 import (
+            emit_elementwise_broadcast_add_softplus_bf16_design,
+        )
+
+        unroll = int(self.halide_gen_args_dict["glb_i"])
+        vec_length = int(self.halide_gen_args_dict["vec_width"])
+        num_vecs = int(self.halide_gen_args_dict["vec_height"])
+
+        print(f"\033[94m[INFO] Generating strait add_softplus design: "
+              f"unroll={unroll}, vec_length={vec_length}, num_vecs={num_vecs}\033[0m")
+        emit_elementwise_broadcast_add_softplus_bf16_design(unroll, vec_length, num_vecs, bin_path)
+
+        design_meta_path = os.path.join(bin_path, "design_meta_halide.json")
+        with open(design_meta_path, "r") as f:
+            design_meta = json.load(f)
+        for inp in design_meta.get("IOs", {}).get("inputs", []):
+            if inp.get("name") == "bias_host_stencil":
+                inp["shape"] = [num_vecs]
+                break
+        with open(design_meta_path, "w") as f:
+            json.dump(design_meta, f, indent=2)
+
+        self._assert_strait_names_match_halide_meta(bin_path)
+
+    def hack_for_row_prefix_sum_fp_rv(self, json_path, bin_path):
+        """Replace the Halide-generated design_top.json with the strait row prefix sum (cumsum) graph."""
+        from strait.coreir_backend.templates.row_prefix_sum_bf16 import emit_row_prefix_sum_bf16_design
+
+        unroll = int(self.halide_gen_args_dict["glb_i"])
+        vec_length = int(self.halide_gen_args_dict["vec_width"])
+        num_vecs = int(self.halide_gen_args_dict["vec_height"])
+        print(f"\033[94m[INFO] Generating strait row_prefix_sum design: "
+              f"unroll={unroll}, vec_length={vec_length}, num_vecs={num_vecs}\033[0m")
+        emit_row_prefix_sum_bf16_design(unroll, vec_length, num_vecs, bin_path)
+        self._assert_strait_names_match_halide_meta(bin_path)
+
+    def hack_for_col_prefix_sum_fp_rv(self, json_path, bin_path):
+        """Replace the Halide-generated design_top.json with the strait cumsum along dim -2 graph."""
+        from strait.coreir_backend.templates.col_prefix_sum_bf16 import emit_col_prefix_sum_bf16_design
+
+        unroll = int(self.halide_gen_args_dict["glb_i"])
+        vec_length = int(self.halide_gen_args_dict["vec_width"])
+        num_vecs = int(self.halide_gen_args_dict["vec_height"])
+        scan_rows = int(self.halide_gen_args_dict["scan_rows"])
+        print(f"[94m[INFO] Generating strait col_prefix_sum design: "
+              f"unroll={unroll}, vec_length={vec_length}, num_vecs={num_vecs}, scan_rows={scan_rows}[0m")
+        emit_col_prefix_sum_bf16_design(unroll, vec_length, num_vecs, scan_rows, bin_path)
+        self._assert_strait_names_match_halide_meta(bin_path)
+
+    def hack_for_depthwise_conv1d_silu_fp_rv(self, json_path, bin_path):
+        """
+        Replace the Halide-generated design_top.json with the strait depthwise
+        Conv1D + SiLU graph for one tile of glb_i channels (vec_width) and
+        vec_height positions, and set the weight and bias shapes in the design meta.
+        """
+        from strait.coreir_backend.templates.depthwise_conv1d_silu_bf16 import (
+            emit_depthwise_conv1d_silu_bf16_design,
+        )
+
+        unroll = int(self.halide_gen_args_dict["glb_i"])
+        channels = int(self.halide_gen_args_dict["vec_width"])
+        length = int(self.halide_gen_args_dict["vec_height"])
+        assert channels == unroll, "[ERROR] one depthwise conv1d call handles glb_i channels"
+        print(f"\033[94m[INFO] Generating strait depthwise_conv1d_silu design: "
+              f"unroll={unroll}, length={length}\033[0m")
+        emit_depthwise_conv1d_silu_bf16_design(unroll, length, bin_path)
+
+        design_meta_path = os.path.join(bin_path, "design_meta_halide.json")
+        with open(design_meta_path, "r") as f:
+            design_meta = json.load(f)
+        shapes = {
+            "input_host_stencil": [channels, length],
+            "weight_host_stencil": [4, channels],
+            "bias_host_stencil": [channels, 1],
+        }
+        for inp in design_meta.get("IOs", {}).get("inputs", []):
+            if inp.get("name") in shapes:
+                inp["shape"] = shapes[inp["name"]]
+        with open(design_meta_path, "w") as f:
+            json.dump(design_meta, f, indent=2)
+
+        self._assert_strait_names_match_halide_meta(bin_path)
+
     def hack_for_stable_softmax_pass3_fp_rv(self, json_path, bin_path):
         """
         Replace the Halide-generated design_top.json with a strait-generated
@@ -2024,6 +2113,101 @@ class SelectedDesignHacker:
         else:
             scale_output_entry["datafile"] = "hw_scale_packed_output.raw"
             scale_output_entry["shape"] = scale_output_shape
+        with open(design_meta_path, "w") as f:
+            json.dump(design_meta, f, indent=2)
+
+        self._assert_strait_names_match_halide_meta(bin_path)
+
+    def hack_for_fused_e8m0_quant_single_IO_rv(self, json_path, bin_path):
+        """
+        Replace the Halide-generated design_top.json with the strait one-pass MX
+        quantization graph (block scales and e8m0 quantization in one kernel).
+        Its outputs match apply_e8m0_scale_single_IO, so the design meta gets the
+        same shapes and the packed scale output entry.
+        """
+        from strait.coreir_backend.templates.fused_reduction_quant_pack_bf16 import (
+            emit_fused_reduction_quant_pack_bf16_design,
+        )
+
+        top_module = "fused_e8m0_quant_single_IO"
+        unroll = int(self.halide_gen_args_dict["glb_i"])
+        num_pixels = int(self.halide_gen_args_dict["vec_height"])
+        num_channels = int(self.halide_gen_args_dict["vec_width"])
+        num_blocks = num_channels // (unroll * 2)
+
+        print(f"\033[94m[INFO] Generating strait {top_module} (one-pass MX quantize) design: "
+              f"unroll={unroll}, num_pixels={num_pixels}, num_channels={num_channels}\033[0m")
+        emit_fused_reduction_quant_pack_bf16_design(
+            unroll, num_pixels, num_channels, bin_path, top_module=top_module,
+        )
+
+        design_meta_path = os.path.join(bin_path, "design_meta_halide.json")
+        with open(design_meta_path, "r") as f:
+            design_meta = json.load(f)
+        ios = design_meta.setdefault("IOs", {})
+        inputs = ios.setdefault("inputs", [])
+        outputs = ios.setdefault("outputs", [])
+        for entry in inputs:
+            if entry.get("name") == "input_bf_act_host_stencil":
+                entry["shape"] = [num_channels, num_pixels]
+        hw_output_entry = next((e for e in outputs if e.get("name") == "hw_output_mxint8_act_stencil"), None)
+        if hw_output_entry is not None:
+            hw_output_entry["datafile"] = "hw_output_mxint8_act.raw"
+            hw_output_entry["shape"] = [num_channels // 2, num_pixels]
+        outputs.append({
+            "bitwidth": 16,
+            "datafile": "hw_scale_packed_output.raw",
+            "name": "hw_scale_packed_output_stencil",
+            "shape": [num_blocks // 2, num_pixels],
+        })
+        with open(design_meta_path, "w") as f:
+            json.dump(design_meta, f, indent=2)
+
+        self._assert_strait_names_match_halide_meta(bin_path)
+
+    def hack_for_fused_e8m0_quant_multi_IOs_rv(self, json_path, bin_path):
+        """
+        Replace the Halide-generated design_top.json with the strait one-pass MX
+        quantization graph along dim -2 (block scales over 64 rows of a column
+        and e8m0 quantization in one kernel). Its outputs match
+        get_e8m0_scale_accum_gb_input + apply_e8m0_scale_multi_IOs, so the design
+        meta gets the same shapes and the packed scale output entry.
+        """
+        from strait.coreir_backend.templates.fused_accumulator_quant_pack_bf16 import (
+            emit_fused_accumulator_quant_pack_bf16_design,
+        )
+
+        top_module = "fused_e8m0_quant_multi_IOs"
+        block_size = 64
+        unroll = int(self.halide_gen_args_dict["glb_i"])
+        head_dim = int(self.halide_gen_args_dict["head_dim"])
+        seq_heads_prod = int(self.halide_gen_args_dict["seq_heads_prod"])
+
+        print(f"\033[94m[INFO] Generating strait {top_module} (one-pass MX quantize along dim -2) design: "
+              f"unroll={unroll}, head_dim={head_dim}, seq_heads_prod={seq_heads_prod}\033[0m")
+        emit_fused_accumulator_quant_pack_bf16_design(
+            unroll, head_dim, seq_heads_prod, bin_path, block_size=block_size, top_module=top_module,
+        )
+
+        design_meta_path = os.path.join(bin_path, "design_meta_halide.json")
+        with open(design_meta_path, "r") as f:
+            design_meta = json.load(f)
+        ios = design_meta.setdefault("IOs", {})
+        inputs = ios.setdefault("inputs", [])
+        outputs = ios.setdefault("outputs", [])
+        for entry in inputs:
+            if entry.get("name") == "input_bf_act_host_stencil":
+                entry["shape"] = [head_dim, seq_heads_prod]
+        hw_output_entry = next((e for e in outputs if e.get("name") == "hw_output_mxint8_act_stencil"), None)
+        if hw_output_entry is not None:
+            hw_output_entry["datafile"] = "hw_output_mxint8_act.raw"
+            hw_output_entry["shape"] = [head_dim // 2, seq_heads_prod]
+        outputs.append({
+            "bitwidth": 16,
+            "datafile": "hw_scale_packed_output.raw",
+            "name": "hw_scale_packed_output_stencil",
+            "shape": [head_dim // 2, seq_heads_prod // block_size],
+        })
         with open(design_meta_path, "w") as f:
             json.dump(design_meta, f, indent=2)
 
