@@ -3516,6 +3516,53 @@ class SelectedDesignHacker:
         seq_len = int(self.halide_gen_args_dict.get("seq_len", 64))
         self._emit_strait_psum_reduction_design(json_path, bin_path, hidden_dim * seq_len)
 
+    def hack_for_zircon_2d_broadcast_mul_fp_rv(self, json_path, bin_path):
+        """
+        MU output x a broadcast scale per (column group, row), e.g. Mamba2 C@states x exp(a_cum).
+        Emit the strait elementwise_mul_broadcast_bf16 design (one fp_mul per lane, one shared broadcast IO
+        replaying the run's scales in MU output order) and shrink hw_broadcast_input_stencil's shape in
+        design_meta_halide.json to the run's scale count, like stable_softmax_pass2's vec_max.
+        """
+        from strait.coreir_backend.templates.elementwise_mul_broadcast_bf16 import (
+            broadcast_address_pattern,
+            emit_elementwise_mul_broadcast_bf16_design,
+        )
+
+        # The broadcast IO must be a single unpacked GLB IO; the GLB bank config (process.cpp) sets it
+        assert os.environ.get("HW_BROADCAST_INPUT_STENCIL_PACKED", "") == "0", \
+            "HW_BROADCAST_INPUT_STENCIL_PACKED must be 0: the broadcast IO is one unpacked GLB IO"
+
+        myunroll = int(self.halide_gen_args_dict.get("myunroll", 1))
+        myunroll_E64 = int(self.halide_gen_args_dict.get("myunroll_E64", 16))
+        myunroll_E64_MB = int(self.halide_gen_args_dict.get("myunroll_E64_MB", 32))
+        if os.environ.get("E64_MULTI_BANK_MODE_ON", "0") == "1":
+            unroll = myunroll_E64_MB
+        elif os.environ.get("E64_MODE_ON", "0") == "1":
+            unroll = myunroll_E64
+        else:
+            unroll = myunroll
+
+        tensor_size = int(self.halide_gen_args_dict["hidden_dim"]) * int(self.halide_gen_args_dict["seq_len"])
+        x1, x2, k1, k2, group_cols = (int(self.halide_gen_args_dict[k]) for k in ("x1", "x2", "k1", "k2", "group_cols"))
+        _, _, num_scales = broadcast_address_pattern(x1, x2, k1, k2, group_cols)
+
+        print(f"\033[94m[INFO] Generating strait broadcast-mul design: unroll={unroll}, tensor_size={tensor_size}, "
+              f"x1={x1} x2={x2} k1={k1} k2={k2} group_cols={group_cols}, {num_scales} broadcast scales\033[0m")
+        emit_elementwise_mul_broadcast_bf16_design(unroll, tensor_size, x1, x2, k1, k2, group_cols, bin_path)
+        print(f"\033[92m[INFO] Replaced design_top.json at {json_path}\033[0m")
+
+        design_meta_path = os.path.join(bin_path, "design_meta_halide.json")
+        with open(design_meta_path, "r") as f:
+            design_meta = json.load(f)
+        for inp in design_meta.get("IOs", {}).get("inputs", []):
+            if inp.get("name") == "hw_broadcast_input_stencil":
+                inp["shape"] = [num_scales]
+                break
+        with open(design_meta_path, "w") as f:
+            json.dump(design_meta, f, indent=2)
+
+        self._assert_strait_names_match_halide_meta(bin_path)
+
     def hack_for_zircon_dequant_fp_rv(self, json_path, bin_path):
         """
         Dequantize (MU input * scalar constant): emit strait elementwise_mul_bf16 in mu_x_const mode.

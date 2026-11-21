@@ -572,6 +572,10 @@ def hack_addr_gen_for_mu_tiling(meta, mu_tiling_file):
     #     k_dim_host_tiling_idx = int(os.environ.get("K_DIM_HOST_TILING_IDX"))
 
 
+    # IOs whose address generator the strait template already wrote for the MU output order (e.g. a broadcast scale IO)
+    ios_without_mu_tiling_addr_hack_env = os.environ.get("NO_MU_TILING_ADDR_HACK", "")
+    ios_without_mu_tiling_addr_hack = ios_without_mu_tiling_addr_hack_env.split(" ") if ios_without_mu_tiling_addr_hack_env else []
+
     # Update the address generator config in the design meta
     # TODO: This really shouldn't be applied to ALL inputs and outputs. In future, need some sort of metadata to specify which inputs and outputs are influenced by the matrix unit tiling
     for io_type in ["inputs", "outputs"]:
@@ -581,6 +585,13 @@ def hack_addr_gen_for_mu_tiling(meta, mu_tiling_file):
         for io in meta["IOs"][io_type]:
             io_name = io["name"]
             io_name_caps = io_name.upper()
+
+            if io_name in ios_without_mu_tiling_addr_hack:
+                print(f"\033[93m INFO: Skipping MU tiling address hack for IO {io_name} as specified by NO_MU_TILING_ADDR_HACK environment variable.\033[0m")
+                # Keep the template's address generator; its strides are final, as for the hacked IOs
+                for tile in io.get("io_tiles", []):
+                    tile["hacked_for_mu_tiling"] = True
+                continue
 
             io_broadcast_dims = []
             if "BROADCAST_TENSORS" in os.environ:
