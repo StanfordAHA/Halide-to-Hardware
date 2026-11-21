@@ -76,8 +76,10 @@ int main( int argc, char **argv ) {
   const float dequant_scale = DEQUANT_SCALE ? atof(DEQUANT_SCALE) : 0.00006341934204101562f;
   printf("Using dequant_scale of %f\n", dequant_scale);
 
-  processor.input   = Buffer<uint16_t>(n_oc, out_img, out_img);
-  processor.output  = Buffer<uint16_t>(n_oc, out_img, out_img);
+  auto OY = getenv("out_img_y");  // optional non-square M = out_img x out_img_y (0 / unset = square)
+  auto out_img_y = (OY && atoi(OY) > 0) ? atoi(OY) : out_img;
+  processor.input   = Buffer<uint16_t>(n_oc, out_img, out_img_y);
+  processor.output  = Buffer<uint16_t>(n_oc, out_img, out_img_y);
 
   // Fill input with random values
   for (int c = 0; c < processor.input.dim(0).extent(); c++) {
