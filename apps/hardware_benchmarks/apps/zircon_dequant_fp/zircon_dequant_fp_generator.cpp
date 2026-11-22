@@ -19,6 +19,7 @@ public:
 
     GeneratorParam<int> out_img{"out_img", 56};
     GeneratorParam<int> n_oc{"n_oc", 64};
+    GeneratorParam<int> out_img_y{"out_img_y", 0};  // 0 = out_img (square); else M = out_img x out_img_y
 
     GeneratorParam<int32_t> myunroll{"myunroll", 1};
     GeneratorParam<int32_t> myunroll_E64{"myunroll_E64", 16};
@@ -56,12 +57,13 @@ public:
           }
 
           output.bound(x, 0, out_img);
-          output.bound(y, 0, out_img);
+          const int oy = int(out_img_y) > 0 ? int(out_img_y) : int(out_img);
+          output.bound(y, 0, oy);
           output.bound(c, 0, n_oc);
 
           hw_output.compute_root();
           hw_output
-            .tile(x,y, xo,yo, xi,yi, out_img, out_img)
+            .tile(x,y, xo,yo, xi,yi, out_img, oy)
             .reorder(c, xi, yi, xo, yo)
             .hw_accelerate(xi, xo);
           hw_output.unroll(c, unroll);
