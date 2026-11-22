@@ -81,13 +81,21 @@ Resources: 32 PEs and 32 Ponds, no MEMs, 16 IO tiles.
 aha regress '{"width":28,"height":16,"cols_removed":12,"mu_oc_0":32,"glb_tests_fp_RV":["apps/col_prefix_sum_fp_RV_E64_MB"]}'
 ```
 
+Two matrices of 256 × 256 (the Mamba2 SSD chunk) are the env set `mamba2_256x256`:
+
+```
+aha regress '{"width":28,"height":16,"cols_removed":12,"mu_oc_0":32,"glb_tests_fp_RV":["apps/col_prefix_sum_fp_RV_E64_MB"]}' --env-parameters mamba2_256x256
+```
+
 ## Validation
 
 `apps/col_prefix_sum_fp_RV_E64_MB` passes the regression FP check.
 Against an FP64 cumsum: max relative error 3.5%, mean 0.59%.
 
 The kernel takes **4,267 cycles** for 4,096 values per lane, **96.0%** of one
-value per lane per cycle. Kernel cycles only; no RTL changes.
+value per lane per cycle. Two 256 × 256 matrices (`mamba2_256x256`) take
+4,177 cycles for 4,096 values per lane, 98.1%. Kernel cycles only; no RTL
+changes.
 
 In the waveform each lane writes one value every cycle except at the 7
 matrix boundaries, 11 cycles each. At a boundary, the clear waits until r1
@@ -100,5 +108,7 @@ Limits:
 
 - `vec_width` must be a multiple of 32, with 1 ≤ G < 30 column groups per
   lane. G = 1 still works, but the loop then runs below one value per cycle.
-- `scan_rows · G` must be at most 1,024 (11-bit Pond extent counters).
+- A matrix of more than 1,024 tokens per lane (`scan_rows · G`, the 11-bit
+  Pond extent limit) is counted in chunks of up to 512 tokens, so
+  `scan_rows · G` must split into at most 1,024 such chunks.
 - There must be 2 to 1,024 matrices.
