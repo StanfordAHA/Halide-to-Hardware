@@ -49,10 +49,7 @@ Two Zircon behaviors shape the FIFOs:
 - **Pond input ready is tied high.** Any write the schedule holds back is
   lost. A Pond FIFO must never fill, and a shift Pond must never wait for its
   reader. Each shift Pond therefore feeds a nop PE that writes into a MEM
-  FIFO, and the carry adds join the MEM outputs. At 5 to 8 groups per row a
-  shift Pond holds only two rows, so its guards compare single elements
-  (lake `get_row_shift_pond`); guards on whole rows held its writer back
-  while the reader read the previous row, and words were lost.
+  FIFO, and the carry adds join the MEM outputs.
 
 Resources: 94 PEs, 49 MEMs, 47 Ponds, 47 registers; input at x = 12–19,
 output at 20–27. Rows of 2 to 8 groups (`vec_width / 32`) and 2 to 1024 rows
@@ -64,21 +61,14 @@ are supported.
 aha regress '{"width":28,"height":16,"cols_removed":12,"mu_oc_0":32,"glb_tests_fp_RV":["apps/row_prefix_sum_fp_RV_E64_MB"]}'
 ```
 
-The Mamba2 shape, 256 × 256 (G = 8), is the env set `mamba2_256x256`:
-
-```
-aha regress '{"width":28,"height":16,"cols_removed":12,"mu_oc_0":32,"glb_tests_fp_RV":["apps/row_prefix_sum_fp_RV_E64_MB"]}' --env-parameters mamba2_256x256
-```
-
 ## Validation
 
 `apps/row_prefix_sum_fp_RV_E64_MB` passes the regression FP check. Against
 an FP64 cumsum: max relative error 1.05%, mean 0.22%.
 
-The kernel takes **2,538 cycles** for 2,048 groups per lane, 81% of one
-group per cycle (2,652 before the lake FIFO Pond fix of 2026-11-21, 14,898
-before this port). At 256 × 256 (G = 8) it takes 2,944 cycles for the same
-2,048 groups per lane, 70%. Kernel cycles only; no RTL changes.
+The kernel takes **2,652 cycles** for 2,048 groups per lane, 77% of one
+group per cycle (previously 14,898 cycles, 14%). Kernel cycles only; no RTL
+changes.
 
 In steady state input and output run at about 82%. The rest of the loss
 comes from the up-sweep. Its adds join two operands of the same depth whose
