@@ -2,6 +2,7 @@
 #include "halide_image_io.h"
 #include "hardware_process_helper.h"
 #include <cstdio>
+#include <cstring>
 #include <fstream>
 #include <iostream>
 #include <math.h>
@@ -82,6 +83,14 @@ int main(int argc, char **argv) {
         for (int x = 0; x < vec_width; x++) {
             processor.input(x, y) = float_to_bfloat16_process(-static_cast<float>(rand()) / RAND_MAX);
         }
+    }
+
+    // USE_REAL_INPUT: the input written to the app dir by voyager/scripts/aha_flow/parse_dnnLayer_tensors.py
+    // (row-major, big-endian), e.g. Mamba2's a = dt * A for the a_cum cumsum
+    auto real_input_env = getenv("USE_REAL_INPUT");
+    if (real_input_env && strcmp(real_input_env, "1") == 0) {
+        load_raw_to_halide_buffer("hw_input_stencil.raw", processor.input);
+        std::cout << "Loaded the real hw_input_stencil.raw" << std::endl;
     }
 
     // CPU reference: running sum in double precision, rounded once to BF16.

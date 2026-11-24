@@ -2,6 +2,8 @@
 #include "halide_image_io.h"
 #include "hardware_process_helper.h"
 #include <cstdio>
+#include <cstring>
+#include <string>
 #include <fstream>
 #include <iostream>
 #include <math.h>
@@ -93,12 +95,45 @@ int main(int argc, char **argv) {
         }
     }
 
-    // CPU reference in double precision, rounded once to BF16.
+    // USE_REAL_INPUT: the activation written to the app dir by voyager/scripts/aha_flow/parse_dnnLayer_tensors.py
+    // (row-major, big-endian). ZERO_BIAS: a zero bias, for an input whose bias was already added (Mamba2's dt_bias
+    // is added in the MU by dt_proj), so the kernel computes softplus(input).
+    auto real_input_env = getenv("USE_REAL_INPUT");
+    if (real_input_env && strcmp(real_input_env, "1") == 0) {
+        // INPUT_RAW_PATH / BIAS_RAW_PATH: an input and a per-row bias from other files (same layouts), e.g. the
+        // carry add of a split-row cumsum: the first pass's output and the carries
+        auto input_path_env = getenv("INPUT_RAW_PATH");
+        std::string input_path = input_path_env ? std::string(input_path_env) : std::string("hw_input_stencil.raw");
+        load_raw_to_halide_buffer(input_path, input);
+        std::cout << "Loaded the real input " << input_path << std::endl;
+        auto bias_path_env = getenv("BIAS_RAW_PATH");
+        if (bias_path_env) {
+            load_raw_to_halide_buffer(bias_path_env, bias);
+            for (int y = 0; y < vec_height; y++)
+                for (int x = 0; x < vec_width; x++)
+                    processor.inputs["bias.mat"](x, y) = bias(y);
+            std::cout << "Loaded the real bias " << bias_path_env << std::endl;
+        }
+    }
+    auto zero_bias_env = getenv("ZERO_BIAS");
+    if (zero_bias_env && strcmp(zero_bias_env, "1") == 0) {
+        for (int y = 0; y < vec_height; y++) {
+            bias(y) = 0;
+            for (int x = 0; x < vec_width; x++) {
+                processor.inputs["bias.mat"](x, y) = 0;
+            }
+        }
+        std::cout << "Using a zero bias" << std::endl;
+    }
+
+    // CPU reference in double precision, rounded once to BF16. ADD_SOFTPLUS_OP=add: input + bias only.
+    auto op_env = getenv("ADD_SOFTPLUS_OP");
+    bool add_only = op_env && strcmp(op_env, "add") == 0;
     processor.output = Buffer<uint16_t>(vec_width, vec_height);
     for (int y = 0; y < vec_height; y++) {
         for (int x = 0; x < vec_width; x++) {
             double s = bfloat16_to_float_process(input(x, y)) + bfloat16_to_float_process(bias(y));
-            double softplus = std::max(s, 0.0) + log1p(exp(-fabs(s)));
+            double softplus = add_only ? s : std::max(s, 0.0) + log1p(exp(-fabs(s)));
             processor.output(x, y) = float_to_bfloat16_process(softplus);
         }
     }

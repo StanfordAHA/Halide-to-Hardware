@@ -390,9 +390,11 @@ class SelectedDesignHacker:
         vec_length = int(self.halide_gen_args_dict["vec_width"])
         num_vecs = int(self.halide_gen_args_dict["vec_height"])
 
+        # ADD_SOFTPLUS_OP=add: the bias add alone (input + bias[row]), e.g. the carry add of a split-row cumsum
+        op = os.environ.get("ADD_SOFTPLUS_OP", "softplus")
         print(f"\033[94m[INFO] Generating strait add_softplus design: "
-              f"unroll={unroll}, vec_length={vec_length}, num_vecs={num_vecs}\033[0m")
-        emit_elementwise_broadcast_add_softplus_bf16_design(unroll, vec_length, num_vecs, bin_path)
+              f"unroll={unroll}, vec_length={vec_length}, num_vecs={num_vecs}, op={op}\033[0m")
+        emit_elementwise_broadcast_add_softplus_bf16_design(unroll, vec_length, num_vecs, bin_path, op=op)
 
         design_meta_path = os.path.join(bin_path, "design_meta_halide.json")
         with open(design_meta_path, "r") as f:
@@ -401,6 +403,301 @@ class SelectedDesignHacker:
             if inp.get("name") == "bias_host_stencil":
                 inp["shape"] = [num_vecs]
                 break
+        with open(design_meta_path, "w") as f:
+            json.dump(design_meta, f, indent=2)
+
+        self._assert_strait_names_match_halide_meta(bin_path)
+
+    def hack_for_mamba_skip_gate_fp_rv(self, json_path, bin_path):
+        """
+        Replace the Halide-generated design_top.json with the strait Mamba2 skip + gate graph,
+        g = (Y + D * x) * silu(z) (submodule_7 + mul_17). A run is vec_width / head_dim heads of all vec_height positions.
+        With IO_INNERMOST_TILE_PARAMS the parser loads only the run's D values (read from 0); otherwise the whole D vector
+        sits in one GLB tile and the run starts at head heads per run * IO_INNERMOST_DIM_TILING_IDX. Y keeps score@x's
+        heads-first order; its input DMA does the permute (see the template).
+        """
+        from strait.coreir_backend.templates.elementwise_skip_gate_bf16 import (
+            emit_elementwise_skip_gate_bf16_design,
+        )
+
+        unroll = int(self.halide_gen_args_dict["glb_i"])
+        vec_length = int(self.halide_gen_args_dict["vec_width"])
+        num_vecs = int(self.halide_gen_args_dict["vec_height"])
+        head_dim = int(os.environ.get("SKIP_GATE_HEAD_DIM", "64"))
+        chunk_rows = int(os.environ.get("SKIP_GATE_CHUNK_ROWS", "256"))
+        heads = vec_length // head_dim
+        if os.environ.get("IO_INNERMOST_TILE_PARAMS", "") == "1":
+            # D sliced per run by the parser: the run's heads only, read from 0. (Tile k31 with the whole D and start 62
+            # read D[2], D[3]: the testbench wrote D at the read start, rounded down to a 64-bit word, because the stream
+            # had no tb_write_starting_addr; relative_stream now emits [0] with a nonzero start.)
+            num_heads, d_start = heads, 0
+        else:
+            num_heads = int(os.environ.get("SKIP_GATE_NUM_HEADS", "64"))
+            d_start = heads * int(os.environ.get("IO_INNERMOST_DIM_TILING_IDX", "0"))
+        assert d_start + heads <= num_heads, f"heads {d_start}.. exceed the {num_heads} D values"
+
+        print(f"\033[94m[INFO] Generating strait mamba_skip_gate design: unroll={unroll}, vec_length={vec_length}, "
+              f"num_vecs={num_vecs}, head_dim={head_dim}, chunk_rows={chunk_rows}, d_start={d_start}\033[0m")
+        emit_elementwise_skip_gate_bf16_design(
+            unroll, vec_length, num_vecs, bin_path, head_dim=head_dim, chunk_rows=chunk_rows, d_start=d_start,
+            buffer_outputs=True,
+        )
+
+        design_meta_path = os.path.join(bin_path, "design_meta_halide.json")
+        with open(design_meta_path, "r") as f:
+            design_meta = json.load(f)
+        shapes = {
+            "input_host_stencil": [vec_length, num_vecs],
+            "gate_host_stencil": [vec_length, num_vecs],
+            "yheads_host_stencil": [head_dim, num_vecs * vec_length // head_dim],
+            "weight_host_stencil": [num_heads],
+        }
+        for inp in design_meta.get("IOs", {}).get("inputs", []):
+            if inp.get("name") in shapes:
+                inp["shape"] = shapes[inp["name"]]
+        for out in design_meta.get("IOs", {}).get("outputs", []):
+            out["shape"] = [vec_length, num_vecs]
+        with open(design_meta_path, "w") as f:
+            json.dump(design_meta, f, indent=2)
+
+        self._assert_strait_names_match_halide_meta(bin_path)
+
+    def hack_for_mamba_x_dt_fp_rv(self, json_path, bin_path):
+        """
+        Replace the Halide-generated design_top.json with the strait Mamba2 X = x * dt graph (mul_7, heads-first output
+        = permute_1). A run is one 16-lane pass (half the lanes of the 32-lane layout) of MUL_X_DT_NUM_HEADS heads (one
+        dt GLB tile) x vec_height positions: x [vec_height x vec_width], dt [vec_height x heads], X heads-first
+        [heads * vec_height x vec_width / heads]. dt is serialized by a get_interleave_mem gather tree (see the template).
+        """
+        from strait.coreir_backend.templates.elementwise_mul_head_gather_bf16 import (
+            emit_elementwise_mul_head_gather_bf16_design, hold,
+        )
+
+        unroll = int(self.halide_gen_args_dict["glb_i"])
+        vec_width = int(self.halide_gen_args_dict["vec_width"])
+        num_vecs = int(self.halide_gen_args_dict["vec_height"])
+        num_heads = int(os.environ.get("MUL_X_DT_NUM_HEADS", "8"))
+        head_dim = int(os.environ.get("MUL_X_DT_HEAD_DIM", "64"))
+        layout_lanes = int(os.environ.get("MUL_X_DT_LAYOUT_LANES", "32"))
+        # dt read from its chip layout (softplus's 32-lane GLB tile: word 2 l + s) instead of a per-run slice:
+        # MUL_X_DT_DT_ROW_STRIDE words per position from word MUL_X_DT_DT_START, MUL_X_DT_DT_ROWS words loaded
+        dt_row_stride = int(os.environ.get("MUL_X_DT_DT_ROW_STRIDE", "1"))
+        dt_start = int(os.environ.get("MUL_X_DT_DT_START", "0"))
+        dt_rows = int(os.environ.get("MUL_X_DT_DT_ROWS", str(num_vecs)))
+        b = hold(head_dim, layout_lanes)
+        assert vec_width == num_heads * b * unroll, \
+            f"vec_width {vec_width} != {num_heads} heads x hold {b} x unroll {unroll}"
+        assert dt_start + dt_row_stride * (num_vecs - 1) < dt_rows, \
+            f"dt words {dt_start} + {dt_row_stride} x {num_vecs - 1} exceed the {dt_rows} loaded"
+
+        print(f"\033[94m[INFO] Generating strait mamba_x_dt design: unroll={unroll}, num_heads={num_heads}, "
+              f"num_vecs={num_vecs}, head_dim={head_dim}, layout_lanes={layout_lanes} (hold {b})\033[0m")
+        emit_elementwise_mul_head_gather_bf16_design(
+            unroll, num_heads, num_vecs, bin_path, layout_lanes=layout_lanes, head_dim=head_dim, buffer_outputs=True,
+            scalars=(("dt", dt_row_stride, dt_start),),
+        )
+
+        design_meta_path = os.path.join(bin_path, "design_meta_halide.json")
+        with open(design_meta_path, "r") as f:
+            design_meta = json.load(f)
+        shapes = {
+            "input_host_stencil": [vec_width, num_vecs],
+            "dt_host_stencil": [num_heads, dt_rows],
+        }
+        for inp in design_meta.get("IOs", {}).get("inputs", []):
+            if inp.get("name") in shapes:
+                inp["shape"] = shapes[inp["name"]]
+        for out in design_meta.get("IOs", {}).get("outputs", []):
+            out["shape"] = [b * unroll, num_heads * num_vecs]
+        with open(design_meta_path, "w") as f:
+            json.dump(design_meta, f, indent=2)
+
+        self._assert_strait_names_match_halide_meta(bin_path)
+
+    def _hack_mul_head_gather(self, bin_path, top_module, scalars, default_slots, scalar_shape):
+        """
+        Shared by the Mamba2 x-times-per-head-scalar apps on strait elementwise_mul_head_gather_bf16 with a
+        position-major output: a run is one 16-lane pass (half the lanes of the 32-lane layout) of MUL_GATHER_NUM_HEADS x
+        MUL_GATHER_SLOTS heads (one scalar GLB tile) x vec_height rows; each scalar is serialized by a get_interleave_mem
+        gather tree. scalar_shape(num_heads, slots, num_vecs) is the scalars' design_meta shape.
+        """
+        from strait.coreir_backend.templates.elementwise_mul_head_gather_bf16 import (
+            emit_elementwise_mul_head_gather_bf16_design, hold,
+        )
+
+        unroll = int(self.halide_gen_args_dict["glb_i"])
+        vec_width = int(self.halide_gen_args_dict["vec_width"])
+        num_vecs = int(self.halide_gen_args_dict["vec_height"])
+        num_heads = int(os.environ.get("MUL_GATHER_NUM_HEADS", "8"))
+        slots = int(os.environ.get("MUL_GATHER_SLOTS", str(default_slots)))
+        head_dim = int(os.environ.get("MUL_GATHER_HEAD_DIM", "64"))
+        layout_lanes = int(os.environ.get("MUL_GATHER_LAYOUT_LANES", "32"))
+        b = hold(head_dim, layout_lanes)
+        assert vec_width == num_heads * slots * b * unroll, \
+            f"vec_width {vec_width} != {num_heads} heads x {slots} slots x hold {b} x unroll {unroll}"
+
+        print(f"\033[94m[INFO] Generating strait {top_module} design: unroll={unroll}, scalars={scalars}, "
+              f"num_heads={num_heads}, slots={slots}, num_vecs={num_vecs}, head_dim={head_dim}, "
+              f"layout_lanes={layout_lanes} (hold {b})\033[0m")
+        emit_elementwise_mul_head_gather_bf16_design(
+            unroll, num_heads, num_vecs, bin_path, layout_lanes=layout_lanes, head_dim=head_dim, buffer_outputs=True,
+            scalars=scalars, slots=slots, heads_first_output=False, top_module=top_module,
+        )
+
+        design_meta_path = os.path.join(bin_path, "design_meta_halide.json")
+        with open(design_meta_path, "r") as f:
+            design_meta = json.load(f)
+        shapes = {"input_host_stencil": [vec_width, num_vecs]}
+        for name, *_ in scalars:
+            shapes[f"{name}_host_stencil"] = scalar_shape(num_heads, slots, num_vecs)
+        for inp in design_meta.get("IOs", {}).get("inputs", []):
+            if inp.get("name") in shapes:
+                inp["shape"] = shapes[inp["name"]]
+        for out in design_meta.get("IOs", {}).get("outputs", []):
+            out["shape"] = [vec_width, num_vecs]
+        with open(design_meta_path, "w") as f:
+            json.dump(design_meta, f, indent=2)
+
+        self._assert_strait_names_match_halide_meta(bin_path)
+
+    def hack_for_mamba_x_end_fp_rv(self, json_path, bin_path):
+        """
+        Replace the Halide-generated design_top.json with the strait Mamba2 X_end = (x * dt) * decay_to_end graph
+        (mul_11): x [vec_height x vec_width], dt and decay_to_end [vec_height x heads], X_end position-major. Each
+        scalar has its own gather tree; the lane PEs multiply by dt, then by decay_to_end.
+        """
+        self._hack_mul_head_gather(bin_path, "mamba_x_end_fp", (("dt", 1), ("decay", 1)), 1,
+                                   lambda heads, slots, rows: [heads * slots, rows])
+
+    def hack_for_mamba_state_decay_fp_rv(self, json_path, bin_path):
+        """
+        Replace the Halide-generated design_top.json with the strait Mamba2 decayed state = state * chunk decay graph
+        (mul_12 .. mul_14): the state [vec_height x vec_width] of one chunk-decay GLB tile's heads (8 lanes x 2 word
+        slots), the decay [slots x heads], the same for every row (row stride 0).
+        With MUL_GATHER_SCALAR_LANE set, the decay comes from one lane of a packed GLB tile instead (the lane source, no
+        gather tree): exp_2's output, where the chunk decays sit in lane 7 of GLB tile 3 at word 512 c + 8 h + 7. The run
+        is MUL_GATHER_NUM_HEADS consecutive heads; head h's decay is word MUL_GATHER_SCALAR_START +
+        MUL_GATHER_SCALAR_HEAD_STRIDE h; the decay tile is [MUL_GATHER_SCALAR_ROWS words x MUL_GATHER_SCALAR_LANES].
+        """
+        lane = os.environ.get("MUL_GATHER_SCALAR_LANE", "")
+        if not lane:
+            self._hack_mul_head_gather(bin_path, "mamba_state_decay_fp", (("decay", 0),), 2,
+                                       lambda heads, slots, rows: [heads, slots])
+            return
+        lanes = int(os.environ.get("MUL_GATHER_SCALAR_LANES", "8"))
+        head_stride = int(os.environ.get("MUL_GATHER_SCALAR_HEAD_STRIDE", "8"))
+        start = int(os.environ.get("MUL_GATHER_SCALAR_START", "0"))
+        words = int(os.environ.get("MUL_GATHER_SCALAR_ROWS", "2048"))
+        num_heads = int(os.environ.get("MUL_GATHER_NUM_HEADS", "16"))
+        assert start + head_stride * (num_heads - 1) < words, \
+            f"decay words {start} + {head_stride} x {num_heads - 1} exceed the {words} loaded"
+        scalar = ("decay", 0, start, {"lane": int(lane), "lanes": lanes, "head_stride": head_stride})
+        self._hack_mul_head_gather(bin_path, "mamba_state_decay_fp", (scalar,), 1,
+                                   lambda heads, slots, rows: [lanes, words])
+
+    def hack_for_mamba_exp_fp_rv(self, json_path, bin_path):
+        """
+        Replace the Halide-generated design_top.json with the strait elementwise exp graph (elementwise_sub_exp_bf16
+        without the subtract): Mamba2 exp_2 = exp(a_cum), [vec_height x vec_width] in its producer's layout. z = x / ln2
+        is clamped at MAMBA_EXP_CLAMP (default -127; fp_addiexp's exponent add would wrap below), and the 1/ln2 constant
+        and ROM entries are rounded to nearest (the decay chain's exp).
+        """
+        from strait.coreir_backend.templates.elementwise_sub_exp_bf16 import emit_elementwise_sub_exp_bf16_design
+
+        unroll = int(self.halide_gen_args_dict["glb_i"])
+        vec_length = int(self.halide_gen_args_dict["vec_width"])
+        num_vecs = int(self.halide_gen_args_dict["vec_height"])
+        clamp = float(os.environ.get("MAMBA_EXP_CLAMP", "-127"))
+        print(f"\033[94m[INFO] Generating strait mamba_exp design: unroll={unroll}, vec_length={vec_length}, "
+              f"num_vecs={num_vecs}, clamp={clamp}\033[0m")
+        emit_elementwise_sub_exp_bf16_design(unroll, vec_length, num_vecs, bin_path, subtract=False, clamp=clamp,
+                                             rne=True, top_module="mamba_exp_fp")
+        self._assert_strait_names_match_halide_meta(bin_path)
+
+    def hack_for_mamba_decay_chain_fp_rv(self, json_path, bin_path):
+        """
+        Replace the Halide-generated design_top.json with the strait Mamba2 fused decay chain graph,
+        decay = exp(cumsum_rows(a * strict mask)) * lower mask (mul_8, cumsum_1, exp, mul_9). A run is
+        vec_height / DECAY_CHAIN_SCAN_ROWS matrices (heads) of one 16-lane pass (vec_width columns). a is one packed GLB
+        tile of mul_6's 16-lane layout [DECAY_CHAIN_A_ROWS words x DECAY_CHAIN_A_LANES lanes]; only lane
+        DECAY_CHAIN_A_LANE is connected, read from word DECAY_CHAIN_A_START (the chunk's first position).
+        """
+        from strait.coreir_backend.templates.masked_col_cumsum_exp_bf16 import emit_masked_col_cumsum_exp_bf16_design
+
+        unroll = int(self.halide_gen_args_dict["glb_i"])
+        vec_width = int(self.halide_gen_args_dict["vec_width"])
+        num_vecs = int(self.halide_gen_args_dict["vec_height"])
+        scan_rows = int(os.environ.get("DECAY_CHAIN_SCAN_ROWS", "256"))
+        a_lanes = int(os.environ.get("DECAY_CHAIN_A_LANES", "8"))
+        a_lane = int(os.environ.get("DECAY_CHAIN_A_LANE", "0"))
+        a_rows = int(os.environ.get("DECAY_CHAIN_A_ROWS", "4096"))
+        a_row_words = int(os.environ.get("DECAY_CHAIN_A_ROW_WORDS", "4"))
+        a_start = int(os.environ.get("DECAY_CHAIN_A_START", "0"))
+        clamp = float(os.environ.get("DECAY_CHAIN_CLAMP", "-127"))
+        assert vec_width % unroll == 0 and num_vecs % scan_rows == 0, \
+            f"vec_width {vec_width} / unroll {unroll} or vec_height {num_vecs} / scan_rows {scan_rows} not whole"
+        groups, num_mats = vec_width // unroll, num_vecs // scan_rows
+        assert a_start + a_row_words * (scan_rows - 1) + num_mats - 1 < a_rows, \
+            f"a words {a_start} + {a_row_words} x {scan_rows - 1} + {num_mats - 1} exceed the {a_rows} loaded"
+
+        print(f"\033[94m[INFO] Generating strait mamba_decay_chain design: unroll={unroll}, groups={groups}, "
+              f"scan_rows={scan_rows}, num_mats={num_mats}, a lane {a_lane} of {a_lanes}, a_start={a_start}, "
+              f"clamp={clamp}\033[0m")
+        emit_masked_col_cumsum_exp_bf16_design(
+            unroll, groups, scan_rows, num_mats, bin_path, a_lanes=a_lanes, a_lane=a_lane, a_row_words=a_row_words,
+            a_start=a_start, clamp=clamp,
+        )
+
+        design_meta_path = os.path.join(bin_path, "design_meta_halide.json")
+        with open(design_meta_path, "r") as f:
+            design_meta = json.load(f)
+        shapes = {
+            "a_host_stencil": [a_lanes, a_rows],
+            "mask_strict_host_stencil": [vec_width, scan_rows],
+            "mask_lower_host_stencil": [vec_width, scan_rows],
+        }
+        for inp in design_meta.get("IOs", {}).get("inputs", []):
+            if inp.get("name") in shapes:
+                inp["shape"] = shapes[inp["name"]]
+        for out in design_meta.get("IOs", {}).get("outputs", []):
+            out["shape"] = [vec_width, num_vecs]
+        with open(design_meta_path, "w") as f:
+            json.dump(design_meta, f, indent=2)
+
+        self._assert_strait_names_match_halide_meta(bin_path)
+
+    def hack_for_transpose_fp_rv(self, json_path, bin_path):
+        """
+        Replace the Halide-generated design_top.json with one pass of the strait (batched) transpose graph
+        (transpose_bf16): [TRANSPOSE_BATCH, TRANSPOSE_X, TRANSPOSE_Y] -> [batch, Y, X]. The input is spread over
+        TRANSPOSE_IN_LANES lanes (lane = y mod in_lanes); pass TRANSPOSE_KERNEL_ID reads that lane (the active one of
+        its GLB tile's 8 input IOs) and broadcasts it to glb_i filter MEMs, which write the output rows (b, y) with
+        y = kernel_id mod in_lanes. Input shape = the pass's GLB tile [8 lanes x words]; output = the whole transposed
+        tensor [X x batch * Y] (the other passes' rows stay 0).
+        """
+        from strait.coreir_backend.templates.transpose_bf16 import NUM_INPUT_IOS, emit_transpose_bf16_design
+
+        unroll = int(self.halide_gen_args_dict["glb_i"])
+        batch = int(os.environ.get("TRANSPOSE_BATCH", "1"))
+        X = int(os.environ["TRANSPOSE_X"])
+        Y = int(os.environ["TRANSPOSE_Y"])
+        in_lanes = int(os.environ.get("TRANSPOSE_IN_LANES", str(unroll)))
+        kernel_id = int(os.environ.get("TRANSPOSE_KERNEL_ID", "0"))
+        assert Y % in_lanes == 0 and 0 <= kernel_id < in_lanes, \
+            f"TRANSPOSE_Y {Y} / TRANSPOSE_IN_LANES {in_lanes} or TRANSPOSE_KERNEL_ID {kernel_id} invalid"
+        words = batch * X * (Y // in_lanes)
+        print(f"\033[94m[INFO] Generating strait transpose design: unroll={unroll}, batch={batch}, X={X}, Y={Y}, "
+              f"in_lanes={in_lanes}, pass {kernel_id} (GLB tile {kernel_id // NUM_INPUT_IOS}, "
+              f"IO {kernel_id % NUM_INPUT_IOS})\033[0m")
+        emit_transpose_bf16_design(unroll, (X, Y), kernel_id, bin_path, batch=batch, in_lanes=in_lanes)
+
+        design_meta_path = os.path.join(bin_path, "design_meta_halide.json")
+        with open(design_meta_path, "r") as f:
+            design_meta = json.load(f)
+        for inp in design_meta.get("IOs", {}).get("inputs", []):
+            inp["shape"] = [NUM_INPUT_IOS, words]
+        for out in design_meta.get("IOs", {}).get("outputs", []):
+            out["shape"] = [X, batch * Y]
         with open(design_meta_path, "w") as f:
             json.dump(design_meta, f, indent=2)
 
@@ -426,9 +723,13 @@ class SelectedDesignHacker:
         vec_length = int(self.halide_gen_args_dict["vec_width"])
         num_vecs = int(self.halide_gen_args_dict["vec_height"])
         scan_rows = int(self.halide_gen_args_dict["scan_rows"])
+        # COL_PREFIX_SUM_COL_SPLITS: scan each matrix as that many column slices (exact; keeps the Pond's tokens per
+        # matrix within its counter), e.g. 4 for Mamba2's 256-wide segment-sum matrices
+        col_splits = int(os.environ.get("COL_PREFIX_SUM_COL_SPLITS", "1"))
         print(f"[94m[INFO] Generating strait col_prefix_sum design: "
-              f"unroll={unroll}, vec_length={vec_length}, num_vecs={num_vecs}, scan_rows={scan_rows}[0m")
-        emit_col_prefix_sum_bf16_design(unroll, vec_length, num_vecs, scan_rows, bin_path)
+              f"unroll={unroll}, vec_length={vec_length}, num_vecs={num_vecs}, scan_rows={scan_rows}, "
+              f"col_splits={col_splits}[0m")
+        emit_col_prefix_sum_bf16_design(unroll, vec_length, num_vecs, scan_rows, bin_path, col_splits=col_splits)
         self._assert_strait_names_match_halide_meta(bin_path)
 
     def hack_for_depthwise_conv1d_silu_fp_rv(self, json_path, bin_path):

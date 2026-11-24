@@ -2,6 +2,7 @@
 #include "halide_image_io.h"
 #include "hardware_process_helper.h"
 #include <cstdio>
+#include <cstring>
 #include <fstream>
 #include <iostream>
 #include <math.h>
@@ -90,6 +91,16 @@ int main(int argc, char **argv) {
     auto bias = Buffer<uint16_t>(channels);
     for (int c = 0; c < channels; c++)
         bias(c) = float_to_bfloat16_process(rnd(-0.5f, 0.5f));
+
+    // USE_REAL_INPUT: replace them with the activation, weights and bias written to the app dir by
+    // voyager/scripts/aha_flow/parse_dnnLayer_tensors.py (same layouts, big-endian)
+    auto real_input_env = getenv("USE_REAL_INPUT");
+    if (real_input_env && strcmp(real_input_env, "1") == 0) {
+        load_raw_to_halide_buffer("hw_input_stencil.raw", input);
+        load_raw_to_halide_buffer("hw_weight_stencil.raw", weight);
+        load_raw_to_halide_buffer("hw_bias_stencil.raw", bias);
+        std::cout << "Loaded the real hw_input_stencil.raw, hw_weight_stencil.raw and hw_bias_stencil.raw" << std::endl;
+    }
 
     // CPU reference in double precision, rounded once to BF16:
     // y[t, c] = bias[c] + sum_k w[c, k] * x[t + k - 3, c] (zero before t = 0), out = y * sigmoid(y).

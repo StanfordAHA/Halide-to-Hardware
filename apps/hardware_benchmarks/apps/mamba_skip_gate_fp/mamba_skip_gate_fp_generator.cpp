@@ -1,0 +1,134 @@
+#include "Halide.h"
+
+namespace {
+
+using namespace Halide;
+using namespace Halide::ConciseCasts;
+
+class MambaSkipGate : public Halide::Generator<MambaSkipGate> {
+public:
+    Input<Buffer<uint16_t>> input{ "input", 2 };
+    Input<Buffer<uint16_t>> weight{ "weight", 2 };
+    Input<Buffer<uint16_t>> yheads{ "yheads", 2 };
+    Input<Buffer<uint16_t>> gate{ "gate", 2 };
+    Output<Buffer<uint16_t>> output{ "output", 2 };
+
+    GeneratorParam<int> vec_width{ "vec_width", 128 };
+    GeneratorParam<int> vec_height{ "vec_height", 1024 };
+    GeneratorParam<int> glb_i{ "glb_i", 16 };
+
+    void generate() {
+        /* THE ALGORITHM */
+        // Mamba2 skip + gate: g = (Y + D * x) * silu(z). Only the IO names and shapes matter here: the strait
+        // template elementwise_skip_gate_bf16 replaces the graph (heads-first Y read, one broadcast D IO).
+
+        Var x("x"), y("y");
+        Func hw_input("hw_input"), input_host("input_host"), input_glb("input_glb"), input_cgra("input_cgra");
+        Func hw_weight("hw_weight"), weight_host("weight_host"), weight_glb("weight_glb"), weight_cgra("weight_cgra");
+        Func hw_yheads("hw_yheads"), yheads_host("yheads_host"), yheads_glb("yheads_glb"), yheads_cgra("yheads_cgra");
+        Func hw_gate("hw_gate"), gate_host("gate_host"), gate_glb("gate_glb"), gate_cgra("gate_cgra");
+        Func hw_output("hw_output"), output_glb("output_glb"), output_cgra("output_cgra"), sum_cgra("sum_cgra");
+
+        hw_input(x, y) = bf16(input(x, y));
+        input_host(x, y) = hw_input(x, y);
+        input_glb(x, y) = input_host(x, y);
+        input_cgra(x, y) = input_glb(x, y);
+
+        hw_weight(x, y) = bf16(weight(x, y));
+        weight_host(x, y) = hw_weight(x, y);
+        weight_glb(x, y) = weight_host(x, y);
+        weight_cgra(x, y) = weight_glb(x, y);
+
+        hw_yheads(x, y) = bf16(yheads(x, y));
+        yheads_host(x, y) = hw_yheads(x, y);
+        yheads_glb(x, y) = yheads_host(x, y);
+        yheads_cgra(x, y) = yheads_glb(x, y);
+
+        hw_gate(x, y) = bf16(gate(x, y));
+        gate_host(x, y) = hw_gate(x, y);
+        gate_glb(x, y) = gate_host(x, y);
+        gate_cgra(x, y) = gate_glb(x, y);
+
+        output_cgra(x, y) = (input_cgra(x, y) * weight_cgra(x, y) + yheads_cgra(x, y)) * gate_cgra(x, y);
+
+        output_glb(x, y) = output_cgra(x, y);
+        hw_output(x, y) = output_glb(x, y);
+        output(x, y) = u16(hw_output(x, y));
+
+        /* THE SCHEDULE */
+        if (get_target().has_feature(Target::Clockwork)) {
+
+            input_host.bound(x, 0, vec_width).bound(y, 0, vec_height);
+            input_glb.bound(x, 0, vec_width).bound(y, 0, vec_height);
+            input_cgra.bound_extent(x, vec_width);
+
+            weight_host.bound(x, 0, vec_width).bound(y, 0, vec_height);
+            weight_glb.bound(x, 0, vec_width).bound(y, 0, vec_height);
+            weight_cgra.bound_extent(x, vec_width);
+
+            yheads_host.bound(x, 0, vec_width).bound(y, 0, vec_height);
+            yheads_glb.bound(x, 0, vec_width).bound(y, 0, vec_height);
+            yheads_cgra.bound_extent(x, vec_width);
+
+            gate_host.bound(x, 0, vec_width).bound(y, 0, vec_height);
+            gate_glb.bound(x, 0, vec_width).bound(y, 0, vec_height);
+            gate_cgra.bound_extent(x, vec_width);
+
+            output.bound(x, 0, vec_width).bound(y, 0, vec_height);
+            hw_output.bound(x, 0, vec_width).bound(y, 0, vec_height);
+            output_cgra.bound_extent(x, vec_width);
+
+            Var y_host, y_glb, y_cgra;
+            Var x_host, x_glb, x_cgra;
+
+            // Produce loop levels: host, global buffer, cgra
+            // L3 loop level
+            hw_output.compute_root();
+            hw_output
+                .split(x, x_host, x_glb, vec_width)
+                .split(y, y_host, y_glb, vec_height)
+                .reorder(x_glb, y_glb, x_host, y_host)
+                .hw_accelerate(y_glb, y_host)
+                .unroll(x_glb, 1);
+
+            // L2 loop level
+            output_glb.compute_at(hw_output, y_host);
+            output_glb
+                .split(x, x_glb, x_cgra, vec_width)
+                .split(y, y_glb, y_cgra, vec_height)
+                .reorder(x_cgra, y_cgra, x_glb, y_glb)
+                .unroll(x_cgra, 1);
+
+            // L1 loop level
+            output_cgra.compute_at(output_glb, y_glb).unroll(x, 1);
+
+
+            // Input streaming
+            input_host.compute_root().accelerator_input();
+            input_glb.compute_at(hw_output, y_host).unroll(x, 1);
+            input_cgra.compute_at(output_glb, y_glb).unroll(x, 1);
+
+            // Weight streaming
+            weight_host.compute_root().accelerator_input();
+            weight_glb.compute_at(hw_output, y_host).unroll(x, 1);
+            weight_cgra.compute_at(output_glb, y_glb).unroll(x, 1);
+
+            // Y (heads-first) streaming
+            yheads_host.compute_root().accelerator_input();
+            yheads_glb.compute_at(hw_output, y_host).unroll(x, 1);
+            yheads_cgra.compute_at(output_glb, y_glb).unroll(x, 1);
+
+            // Gate silu(z) streaming
+            gate_host.compute_root().accelerator_input();
+            gate_glb.compute_at(hw_output, y_host).unroll(x, 1);
+            gate_cgra.compute_at(output_glb, y_glb).unroll(x, 1);
+
+        } else {  // schedule to CPU
+            output_cgra.compute_root().unroll(x, glb_i);
+        }
+    }
+};
+
+}  // namespace
+
+HALIDE_REGISTER_GENERATOR(MambaSkipGate, mamba_skip_gate_fp)
